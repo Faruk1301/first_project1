@@ -4,28 +4,16 @@ trigger:
       - main
 
 variables:
-  - group: terraform_credential
-  - name: terraformDirectory
-    value: '$(Build.SourcesDirectory)/app'
-  - name: appDirectory
-    value: '$(Build.SourcesDirectory)/app'
+  - group: terraform_credential  # Your variable group
   - name: pythonVersion
     value: '3.10'
-  - name: devWebAppName
-    value: 'webapp-faruk-dev-001'
-  - name: stagingWebAppName
-    value: 'webapp-faruk-staging-001'
-  - name: devResourceGroup
-    value: 'webapp-rg-dev'
-  - name: stagingResourceGroup
-    value: 'webapp-rg-staging'
 
 stages:
+  # 1. BUILD STAGE
   - stage: Build
     displayName: 'Build Application'
     jobs:
       - job: build
-        displayName: 'Build Package'
         pool:
           vmImage: 'ubuntu-latest'
         steps:
@@ -35,104 +23,61 @@ stages:
               addToPath: true
 
           - script: |
-              pip install -r $(appDirectory)/requirements.txt
-              echo "gunicorn --bind=0.0.0.0:5000 --timeout 600 app:app" > $(appDirectory)/startup.sh
-              chmod +x $(appDirectory)/startup.sh
-            displayName: 'Prepare Application'
-            workingDirectory: $(appDirectory)
+              pip install -r app/requirements.txt
+              echo "gunicorn --bind=0.0.0.0:5000 --timeout 600 app:app" > app/startup.sh
+              chmod +x app/startup.sh
+            displayName: 'Prepare app'
+            workingDirectory: '$(Build.SourcesDirectory)/app'
 
           - task: ArchiveFiles@2
             inputs:
-              rootFolderOrFile: $(appDirectory)
+              rootFolderOrFile: 'app'
               includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
-              replaceExistingArchive: true
 
           - publish: '$(Build.ArtifactStagingDirectory)/app.zip'
-            artifact: 'webapp-package'
+            artifact: 'webapp'
 
+  # 2. DEV STAGE  
   - stage: Dev
-    displayName: 'Dev Deployment'
+    displayName: 'Deploy to Dev'
     dependsOn: Build
     jobs:
-      - job: terraform_dev
-        displayName: 'Provision Dev'
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: TerraformInstaller@1
-            inputs:
-              terraformVersion: '1.5.5'
-
-          - script: |
-              export TF_VAR_resource_group_name="$(devResourceGroup)"
-              export TF_VAR_app_service_name="$(devWebAppName)"
-              terraform init -input=false
-              terraform workspace new dev || true
-              terraform workspace select dev
-              terraform plan -out=tfplan -input=false
-              terraform apply -input=false -auto-approve tfplan
-            displayName: 'Terraform Dev'
-            workingDirectory: $(terraformDirectory)
-
-      - job: deploy_dev
-        displayName: 'Deploy to Dev'
-        dependsOn: terraform_dev
+      - job: deploy
         pool:
           vmImage: 'ubuntu-latest'
         steps:
           - download: current
-            artifact: 'webapp-package'
+            artifact: 'webapp'
 
           - task: AzureWebApp@1
             inputs:
-              azureSubscription: 'terraform-sc'
+              azureSubscription: 'terraform-sc'  # Your service connection
               appType: 'webAppLinux'
-              appName: '$(devWebAppName)'
-              package: '$(Pipeline.Workspace)/webapp-package/app.zip'
+              appName: 'webapp-faruk-dev'  # Fixed name
+              package: '$(Pipeline.Workspace)/webapp/app.zip'
               runtimeStack: 'PYTHON|$(pythonVersion)'
               startupCommand: 'bash startup.sh'
 
+  # 3. STAGING STAGE
   - stage: Staging
-    displayName: 'Staging Deployment'
+    displayName: 'Deploy to Staging'
     dependsOn: Dev
     condition: succeeded()
     jobs:
-      - job: terraform_staging
-        displayName: 'Provision Staging'
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: TerraformInstaller@1
-            inputs:
-              terraformVersion: '1.5.5'
-
-          - script: |
-              export TF_VAR_resource_group_name="$(stagingResourceGroup)"
-              export TF_VAR_app_service_name="$(stagingWebAppName)"
-              terraform init -input=false
-              terraform workspace new staging || true
-              terraform workspace select staging
-              terraform plan -out=tfplan -input=false
-              terraform apply -input=false -auto-approve tfplan
-            displayName: 'Terraform Staging'
-            workingDirectory: $(terraformDirectory)
-
-      - job: deploy_staging
-        displayName: 'Deploy to Staging'
-        dependsOn: terraform_staging
+      - job: deploy
         pool:
           vmImage: 'ubuntu-latest'
         steps:
           - download: current
-            artifact: 'webapp-package'
+            artifact: 'webapp'
 
           - task: AzureWebApp@1
             inputs:
-              azureSubscription: 'terraform-sc'
+              azureSubscription: 'terraform-sc'  # Your service connection
               appType: 'webAppLinux'
-              appName: '$(stagingWebAppName)'
-              package: '$(Pipeline.Workspace)/webapp-package/app.zip'
+              appName: 'webapp-faruk-staging'  # Fixed name
+              package: '$(Pipeline.Workspace)/webapp/app.zip'
               runtimeStack: 'PYTHON|$(pythonVersion)'
               startupCommand: 'bash startup.sh'
