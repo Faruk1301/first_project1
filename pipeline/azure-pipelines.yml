@@ -1,20 +1,26 @@
-
-  trigger:
+trigger:
   branches:
     include:
       - main
 
 variables:
   - group: terraform_credential
-  terraformDirectory: '$(Build.SourcesDirectory)/app'
-  pythonVersion: '3.10'
-  devWebAppName: 'webapp-faruk-dev-001'
-  stagingWebAppName: 'webapp-faruk-staging-001'
-  devResourceGroup: 'webapp-rg-dev'
-  stagingResourceGroup: 'webapp-rg-staging'
+  - name: terraformDirectory
+    value: '$(Build.SourcesDirectory)/app'  # main.tf location
+  - name: appDirectory
+    value: '$(Build.SourcesDirectory)/app'  # app.py location
+  - name: pythonVersion
+    value: '3.10'
+  - name: devWebAppName
+    value: 'webapp-faruk-dev-001'
+  - name: stagingWebAppName
+    value: 'webapp-faruk-staging-001'
+  - name: devResourceGroup
+    value: 'webapp-rg-dev'
+  - name: stagingResourceGroup
+    value: 'webapp-rg-staging'
 
 stages:
-  # Stage 1: Build Application
   - stage: Build
     displayName: 'Build Application'
     jobs:
@@ -29,14 +35,15 @@ stages:
               addToPath: true
 
           - script: |
-              pip install -r $(Build.SourcesDirectory)/src/requirements.txt
-              echo "gunicorn --bind=0.0.0.0:5000 --timeout 600 app:app" > $(Build.SourcesDirectory)/src/startup.sh
-              chmod +x $(Build.SourcesDirectory)/src/startup.sh
+              pip install -r $(appDirectory)/requirements.txt
+              echo "gunicorn --bind=0.0.0.0:5000 --timeout 600 app:app" > $(appDirectory)/startup.sh
+              chmod +x $(appDirectory)/startup.sh
             displayName: 'Prepare Application'
+            workingDirectory: $(appDirectory)
 
           - task: ArchiveFiles@2
             inputs:
-              rootFolderOrFile: '$(Build.SourcesDirectory)/src'
+              rootFolderOrFile: $(appDirectory)
               includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
@@ -45,7 +52,6 @@ stages:
           - publish: '$(Build.ArtifactStagingDirectory)/app.zip'
             artifact: 'webapp-package'
 
-  # Stage 2: Dev Environment
   - stage: Dev
     displayName: 'Dev Deployment'
     dependsOn: Build
@@ -86,7 +92,6 @@ stages:
               runtimeStack: 'PYTHON|$(pythonVersion)'
               startupCommand: 'bash startup.sh'
 
-  # Stage 3: Staging Environment
   - stage: Staging
     displayName: 'Staging Deployment'
     dependsOn: Dev
