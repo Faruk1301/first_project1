@@ -1,83 +1,109 @@
 trigger:
-  branches:
+  paths:
     include:
-      - main
+      - app/*
+      - pipeline/azure-pipelines.yml
+
+pool:
+  vmImage: 'ubuntu-latest'
 
 variables:
-  - group: terraform_credential  # Your variable group
+  - group: terraform_credential
   - name: pythonVersion
     value: '3.10'
 
 stages:
-  # 1. BUILD STAGE
+  # ------------------- Build Stage -------------------
   - stage: Build
-    displayName: 'Build Application'
+    displayName: 'Build Stage'
     jobs:
-      - job: build
-        pool:
-          vmImage: 'ubuntu-latest'
+      - job: BuildJob
+        displayName: 'Install & Package App'
         steps:
+          - checkout: self
+
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '$(pythonVersion)'
               addToPath: true
 
           - script: |
-              pip install -r app/requirements.txt
-              echo "gunicorn --bind=0.0.0.0:5000 --timeout 600 app:app" > app/startup.sh
-              chmod +x app/startup.sh
-            displayName: 'Prepare app'
-            workingDirectory: '$(Build.SourcesDirectory)/app'
+              cd app
+              python -m venv venv
+              source venv/bin/activate
+              pip install -r requirements.txt
+            displayName: 'Install Dependencies'
 
           - task: ArchiveFiles@2
+            displayName: 'Archive App Code'
             inputs:
               rootFolderOrFile: 'app'
               includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+              replaceExistingArchive: true
 
-          - publish: '$(Build.ArtifactStagingDirectory)/app.zip'
-            artifact: 'webapp'
+          - publish: $(Build.ArtifactStagingDirectory)/app.zip
+            artifact: drop
 
-  # 2. DEV STAGE  
+  # ------------------- Dev Stage -------------------
   - stage: Dev
-    displayName: 'Deploy to Dev'
+    displayName: 'Dev Deployment'
     dependsOn: Build
     jobs:
-      - job: deploy
-        pool:
-          vmImage: 'ubuntu-latest'
+      - job: DevInfraAndDeploy
+        displayName: 'Terraform Apply + App Deploy (Dev)'
         steps:
+          - checkout: self
+
           - download: current
-            artifact: 'webapp'
+            artifact: drop
+
+          - task: AzureCLI@2
+            displayName: 'Install Terraform'
+            inputs:
+              azureSubscription: 'terraform-sc'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                curl -sL https://apt.releases.hashicorp.com/gpg | gpg --dearmor > hashicorp-archive-keyring.gpg
+                sudo install -o root -g root -m 644 hashicorp-archive-keyring.gpg /usr/share/keyrings/
+                echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+                sudo apt update && sudo apt install terraform -y
+                terraform -version
+
+          - script: |
+              cd app
+              terraform init
+              terraform apply -auto-approve
+            displayName: 'Terraform Deploy Dev'
 
           - task: AzureWebApp@1
+            displayName: 'Deploy App to Dev'
             inputs:
-              azureSubscription: 'terraform-sc'  # Your service connection
+              azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: 'webapp-faruk-dev'  # Fixed name
-              package: '$(Pipeline.Workspace)/webapp/app.zip'
-              runtimeStack: 'PYTHON|$(pythonVersion)'
-              startupCommand: 'bash startup.sh'
+              appName: 'webapp-faruk-dev-001'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
 
-  # 3. STAGING STAGE
+  # ------------------- Staging Stage -------------------
   - stage: Staging
-    displayName: 'Deploy to Staging'
+    displayName: 'Staging Deployment'
     dependsOn: Dev
-    condition: succeeded()
     jobs:
-      - job: deploy
-        pool:
-          vmImage: 'ubuntu-latest'
+      - job: DeployStaging
+        displayName: 'Deploy App to Staging'
         steps:
+          - checkout: self
+
           - download: current
-            artifact: 'webapp'
+            artifact: drop
 
           - task: AzureWebApp@1
+            displayName: 'Deploy App to Staging'
             inputs:
-              azureSubscription: 'terraform-sc'  # Your service connection
+              azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: 'webapp-faruk-staging'  # Fixed name
-              package: '$(Pipeline.Workspace)/webapp/app.zip'
-              runtimeStack: 'PYTHON|$(pythonVersion)'
-              startupCommand: 'bash startup.sh'
+              appName: 'webapp-faruk-staging-001'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
+
