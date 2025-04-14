@@ -16,7 +16,6 @@ variable "location" {
 
 variable "app_service_name" {
   description = "Name of the App Service"
-  default     = "my-python-app-service"
 }
 
 variable "app_service_plan_name" {
@@ -35,30 +34,27 @@ resource "azurerm_resource_group" "rg" {
   location = var.location
 }
 
-# Create App Service Plan
-resource "azurerm_app_service_plan" "plan" {
+# Create modern App Service Plan
+resource "azurerm_service_plan" "plan" {
   name                = var.app_service_plan_name
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  kind                = "Linux"
-  reserved            = true  # Required for Linux plans
-
-  sku {
-    tier = "Standard"
-    size = var.sku_name
-  }
+  os_type             = "Linux"
+  sku_name            = var.sku_name
 }
 
-# Create App Service
-resource "azurerm_app_service" "app" {
+# Create Linux Web App
+resource "azurerm_linux_web_app" "app" {
   name                = var.app_service_name
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  app_service_plan_id = azurerm_app_service_plan.plan.id
+  service_plan_id     = azurerm_service_plan.plan.id
 
   site_config {
-    linux_fx_version = "PYTHON|3.10"
-    always_on        = "true"
+    application_stack {
+      python_version = "3.10"
+    }
+    always_on = true
   }
 
   app_settings = {
@@ -68,4 +64,9 @@ resource "azurerm_app_service" "app" {
   identity {
     type = "SystemAssigned"
   }
+}
+
+# Outputs
+output "app_service_name" {
+  value = azurerm_linux_web_app.app.name
 }
