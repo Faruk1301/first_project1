@@ -1,3 +1,5 @@
+# pipeline/azure-pipelines.yml
+
 trigger:
   paths:
     include:
@@ -94,25 +96,23 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                # Initialize Terraform
                 terraform init -input=false
-                
-                # Attempt to import existing resource group (ignore errors if not exists)
                 terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev) || true
-                
-                # Plan changes
                 terraform plan \
                   -var="app_service_name=$(app_service_name_dev)" \
                   -var="resource_group_name=$(resource_group_name_dev)" \
                   -var="environment=$(environment_dev)"
 
-          - script: |
-              cd $(tfWorkingDir)
-              terraform apply -auto-approve \
-                -var="app_service_name=$(app_service_name_dev)" \
-                -var="resource_group_name=$(resource_group_name_dev)" \
-                -var="environment=$(environment_dev)"
+          - task: Bash@3
             displayName: 'Apply Infrastructure (Dev)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
+                terraform apply -auto-approve \
+                  -var="app_service_name=$(app_service_name_dev)" \
+                  -var="resource_group_name=$(resource_group_name_dev)" \
+                  -var="environment=$(environment_dev)"
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -153,13 +153,16 @@ stages:
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)"
 
-          - script: |
-              cd $(tfWorkingDir)
-              terraform apply -auto-approve \
-                -var="app_service_name=$(app_service_name_staging)" \
-                -var="resource_group_name=$(resource_group_name_staging)" \
-                -var="environment=$(environment_staging)"
+          - task: Bash@3
             displayName: 'Apply Infrastructure (Staging)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
+                terraform apply -auto-approve \
+                  -var="app_service_name=$(app_service_name_staging)" \
+                  -var="resource_group_name=$(resource_group_name_staging)" \
+                  -var="environment=$(environment_staging)"
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -175,5 +178,4 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
-
 
