@@ -37,7 +37,10 @@ variable "sku_name" {
   type        = string
   default     = "S1"
 }
-
+variable "environment" {
+  description = "Deployment environment like dev, staging, prod"
+  type        = string
+}
 # Resource Group
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
