@@ -28,7 +28,7 @@ variable "app_service_name" {
 
 variable "resource_group_name" {
   type    = string
-  default = "my-resource-group"
+  default = "my-resource-group-${var.environment}"
 }
 
 variable "location" {
@@ -89,4 +89,3 @@ resource "azurerm_linux_web_app" "app" {
     type = "SystemAssigned"
   }
 }
-
