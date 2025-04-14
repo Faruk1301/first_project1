@@ -92,10 +92,18 @@ stages:
               cd $(tfWorkingDir)
               terraform init -input=false
               terraform validate
+
+              echo "🔄 Running terraform refresh..."
+              terraform refresh \
+                -var="app_service_name=$(app_service_name_dev)" \
+                -var="resource_group_name=$(resource_group_name_dev)" \
+                -var="environment=$(environment_dev)"
+
+              echo "🚀 Running terraform apply..."
               terraform apply -auto-approve \
                 -var="app_service_name=$(app_service_name_dev)" \
                 -var="resource_group_name=$(resource_group_name_dev)" \
-                -var="environment=$(environment_dev)"  # Using the correct environment variable
+                -var="environment=$(environment_dev)"
             displayName: 'Deploy Infrastructure (Dev)'
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
