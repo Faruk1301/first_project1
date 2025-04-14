@@ -88,6 +88,15 @@ stages:
                 sudo mv terraform /usr/local/bin/
                 terraform -version
 
+          - task: Bash@3
+            displayName: 'Import Resource Group (if needed)'
+            inputs:
+              targetType: 'inline'
+              script: |
+                # Import the resource group if it already exists
+                terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
+                terraform plan
+
           - script: |
               cd $(tfWorkingDir)
               terraform init -input=false
@@ -135,6 +144,15 @@ stages:
                 unzip terraform_$(terraformVersion)_linux_amd64.zip
                 sudo mv terraform /usr/local/bin/
                 terraform -version
+
+          - task: Bash@3
+            displayName: 'Import Resource Group (if needed)'
+            inputs:
+              targetType: 'inline'
+              script: |
+                # Import the resource group if it already exists
+                terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
+                terraform plan
 
           - script: |
               cd $(tfWorkingDir)
