@@ -4,19 +4,11 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.5"
-    }
   }
 }
 
 provider "azurerm" {
   features {}
-}
-
-resource "random_id" "suffix" {
-  byte_length = 4
 }
 
 # Declare variables
@@ -68,7 +60,7 @@ resource "azurerm_service_plan" "plan" {
 
 # Linux Web App (App Service)
 resource "azurerm_linux_web_app" "app" {
-  name                = "${var.app_service_name}-${random_id.suffix.hex}"
+  name                = var.app_service_name  # ✅ Removed random suffix
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   service_plan_id     = azurerm_service_plan.plan.id
