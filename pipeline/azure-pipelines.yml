@@ -93,25 +93,7 @@ stages:
               terraform init -input=false
               terraform validate
               
-              # Check if Terraform state exists, otherwise initialize the state
-              if terraform state list; then
-                echo "State exists, proceeding..."
-              else
-                echo "State file does not exist, skipping import..."
-              fi
-              
-              # Import the existing service plan into Terraform state
-              echo "🔄 Running terraform import for azurerm_service_plan..."
-              terraform import azurerm_service_plan.plan /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)/providers/Microsoft.Web/serverFarms/$(app_service_name_dev)
-              
-              # Run terraform refresh to ensure the state is up to date
-              echo "🔄 Running terraform refresh..."
-              terraform refresh \
-                -var="app_service_name=$(app_service_name_dev)" \
-                -var="resource_group_name=$(resource_group_name_dev)" \
-                -var="environment=$(environment_dev)"
-              
-              # Run terraform apply
+              # Run terraform apply directly without state management
               echo "🚀 Running terraform apply..."
               terraform apply -auto-approve \
                 -var="app_service_name=$(app_service_name_dev)" \
