@@ -105,3 +105,23 @@ stages:
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
 
+  - stage: Staging
+    displayName: 'Staging Environment Deployment'
+    dependsOn: Dev
+    condition: succeeded()
+    jobs:
+      - job: DeployStaging
+        steps:
+          - checkout: self
+          - download: current
+            artifact: drop
+
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Azure Web App (Staging)'
+            inputs:
+              azureSubscription: 'terraform-sc'
+              appType: 'webAppLinux'
+              appName: 'webapp-faruk-staging-001'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
+              runtimeStack: 'PYTHON|3.10'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
