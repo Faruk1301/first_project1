@@ -3,7 +3,6 @@ trigger:
     include:
       - app/*
       - infra/*
-      - requirements.txt
       - pipeline/azure-pipelines.yml
 
 variables:
@@ -49,7 +48,7 @@ stages:
               python -m venv venv
               source venv/bin/activate
               pip install --upgrade pip
-              pip install -r ../requirements.txt
+              pip install -r requirements.txt
             displayName: 'Install Python Dependencies'
 
           - task: ArchiveFiles@2
@@ -90,9 +89,7 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources'
-            condition: |
-              or(contains(variables['Build.SourceBranch'], 'infra/'), contains(variables['Build.SourceVersionMessage'], 'infra/'))
+            displayName: 'Initialize and Import Resources (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -103,16 +100,9 @@ stages:
                   -var="app_service_name=$(app_service_name_dev)" \
                   -var="resource_group_name=$(resource_group_name_dev)" \
                   -var="environment=$(environment_dev)"
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
 
           - task: Bash@3
             displayName: 'Apply Infrastructure (Dev)'
-            condition: |
-              or(contains(variables['Build.SourceBranch'], 'infra/'), contains(variables['Build.SourceVersionMessage'], 'infra/'))
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -149,9 +139,7 @@ stages:
             artifact: drop
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources'
-            condition: |
-              or(contains(variables['Build.SourceBranch'], 'infra/'), contains(variables['Build.SourceVersionMessage'], 'infra/'))
+            displayName: 'Initialize and Import Resources (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -162,16 +150,9 @@ stages:
                   -var="app_service_name=$(app_service_name_staging)" \
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)"
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
 
           - task: Bash@3
             displayName: 'Apply Infrastructure (Staging)'
-            condition: |
-              or(contains(variables['Build.SourceBranch'], 'infra/'), contains(variables['Build.SourceVersionMessage'], 'infra/'))
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
