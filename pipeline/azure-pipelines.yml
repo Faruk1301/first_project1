@@ -124,6 +124,33 @@ stages:
           - download: current
             artifact: drop
 
+          - task: Bash@3
+            displayName: 'Install Terraform'
+            inputs:
+              targetType: 'inline'
+              script: |
+                sudo apt-get update
+                sudo apt-get install -y wget unzip
+                wget https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
+                unzip terraform_$(terraformVersion)_linux_amd64.zip
+                sudo mv terraform /usr/local/bin/
+                terraform -version
+
+          - script: |
+              cd $(tfWorkingDir)
+              terraform init -input=false
+              terraform validate
+              terraform apply -auto-approve \
+                -var="app_service_name=$(app_service_name_staging)" \
+                -var="resource_group_name=$(resource_group_name_staging)" \
+                -var="environment=$(environment_staging)"
+            displayName: 'Deploy Infrastructure (Staging)'
+            env:
+              ARM_CLIENT_ID: $(CLIENT_ID)
+              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(TENANT_ID)
+
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Staging)'
             inputs:
@@ -132,5 +159,6 @@ stages:
               appName: '$(app_service_name_staging)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
-              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app.app:app'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
