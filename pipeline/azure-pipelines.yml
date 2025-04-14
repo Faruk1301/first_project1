@@ -21,6 +21,10 @@ variables:
     value: 'demo-app'
   - name: app_service_name_staging
     value: 'webapp-faruk-staging-001'
+  - name: resource_group_name_dev
+    value: 'my-resource-group-dev'
+  - name: resource_group_name_staging
+    value: 'my-resource-group-staging'
 
 pool:
   vmImage: 'ubuntu-24.04'
@@ -90,6 +94,7 @@ stages:
               terraform validate
               terraform apply -auto-approve \
                 -var="app_service_name=$(app_service_name_dev)" \
+                -var="resource_group_name=$(resource_group_name_dev)" \
                 -var="environment=$(environment_dev)"  # Using the correct environment variable
             displayName: 'Deploy Infrastructure (Dev)'
             env:
@@ -128,5 +133,4 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
-
 
