@@ -1,3 +1,4 @@
+
 trigger:
   paths:
     include:
@@ -89,10 +90,10 @@ stages:
                 -var="environment=$(environment.dev)"
             displayName: 'Deploy Infrastructure (Dev)'
             env:
-              SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-              CLIENT_ID: $(ARM_CLIENT_ID)
-              CLIENT_SECRET: $(ARM_CLIENT_SECRET)
-              TENANT_ID: $(ARM_TENANT_ID)
+              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              CLIENT_ID: $(CLIENT_ID)
+              CLIENT_SECRET: $(CLIENT_SECRET)
+              TENANT_ID: $(TENANT_ID)
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Dev)'
@@ -104,23 +105,3 @@ stages:
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
 
-  - stage: Staging
-    displayName: 'Staging Environment Deployment'
-    dependsOn: Dev
-    condition: succeeded()
-    jobs:
-      - job: DeployStaging
-        steps:
-          - checkout: self
-          - download: current
-            artifact: drop
-
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure Web App (Staging)'
-            inputs:
-              azureSubscription: 'terraform-sc'
-              appType: 'webAppLinux'
-              appName: 'webapp-faruk-staging-001'
-              package: '$(Pipeline.Workspace)/drop/app.zip'
-              runtimeStack: 'PYTHON|3.10'
-              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
