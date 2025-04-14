@@ -1,4 +1,3 @@
-
 trigger:
   paths:
     include:
@@ -18,6 +17,10 @@ variables:
     value: 'dev'
   - name: environment.staging
     value: 'staging'
+
+# Set the app_service_name to 'demo-app'
+  - name: app_service_name
+    value: 'demo-app'  # Use 'demo-app' as the app service name
 
 pool:
   vmImage: 'ubuntu-24.04'  # Use 'ubuntu-22.04' if issues with Terraform persist
@@ -87,7 +90,7 @@ stages:
               terraform validate
               terraform apply -auto-approve \
                 -var="app_service_name=$(app_service_name)" \
-                -var="environment=$(environment.dev)"
+                -var="environment=$(environment.dev)"  # Pass the app_service_name dynamically here
             displayName: 'Deploy Infrastructure (Dev)'
             env:
               SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
@@ -100,7 +103,7 @@ stages:
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: '$(app_service_name)'
+              appName: '$(app_service_name)'  # Using 'demo-app' as the app service name here
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
@@ -121,7 +124,7 @@ stages:
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: 'webapp-faruk-staging-001'
+              appName: 'webapp-faruk-staging-001'  # Update this dynamically if needed for staging
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
