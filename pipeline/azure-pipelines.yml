@@ -18,7 +18,7 @@ variables:
   - name: environment_staging
     value: 'staging'
   - name: app_service_name_dev
-    value: 'demo-app'
+    value: 'demo-app-faruk-dev-001'
   - name: app_service_name_staging
     value: 'webapp-faruk-staging-001'
   - name: resource_group_name_dev
