@@ -1,9 +1,12 @@
-# Configure Azure Provider
 terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
     }
   }
 }
@@ -12,35 +15,43 @@ provider "azurerm" {
   features {}
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 # Variables
 variable "app_service_name" {
   type        = string
-  description = "Name of the Web App"
+  description = "Base name of the Web App"
+  default     = "my-python-app"
 }
 
 variable "resource_group_name" {
-  type        = string
-  default     = "my-resource-group"
+  type    = string
+  default = "my-resource-group"
 }
 
 variable "location" {
-  type        = string
-  default     = "East US"
+  type    = string
+  default = "East US"
 }
 
 variable "service_plan_name" {
-  type        = string
-  default     = "my-app-service-plan"
+  type    = string
+  default = "my-app-service-plan"
 }
 
 variable "sku_name" {
-  type        = string
-  default     = "S1"
+  type    = string
+  default = "S1"
 }
+
 variable "environment" {
   description = "Deployment environment like dev, staging, prod"
   type        = string
+  default     = "dev"
 }
+
 # Resource Group
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
@@ -56,9 +67,9 @@ resource "azurerm_service_plan" "plan" {
   sku_name            = var.sku_name
 }
 
-# Linux Web App
+# Linux Web App (App Service)
 resource "azurerm_linux_web_app" "app" {
-  name                = var.app_service_name
+  name                = "${var.app_service_name}-${random_id.suffix.hex}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   service_plan_id     = azurerm_service_plan.plan.id
@@ -78,3 +89,4 @@ resource "azurerm_linux_web_app" "app" {
     type = "SystemAssigned"
   }
 }
+
