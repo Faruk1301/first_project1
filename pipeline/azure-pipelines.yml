@@ -94,20 +94,23 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
+                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
                 terraform init -input=false
                 terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev) || true
                 terraform plan \
                   -var="app_service_name=$(app_service_name_dev)" \
                   -var="resource_group_name=$(resource_group_name_dev)" \
-                  -var="environment=$(environment_dev)"
-
+                  -var="environment=$(environment_dev)" \
+                  && echo "Terraform Plan Successful" || echo "Terraform Plan Failed"
+          
           - task: Bash@3
             displayName: 'Apply Infrastructure (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform apply -auto-approve \
+                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
+                terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_dev)" \
                   -var="resource_group_name=$(resource_group_name_dev)" \
                   -var="environment=$(environment_dev)"
@@ -144,20 +147,23 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
+                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
                 terraform init -input=false
                 terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging) || true
                 terraform plan \
                   -var="app_service_name=$(app_service_name_staging)" \
                   -var="resource_group_name=$(resource_group_name_staging)" \
-                  -var="environment=$(environment_staging)"
-
+                  -var="environment=$(environment_staging)" \
+                  && echo "Terraform Plan Successful" || echo "Terraform Plan Failed"
+          
           - task: Bash@3
             displayName: 'Apply Infrastructure (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform apply -auto-approve \
+                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
+                terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_staging)" \
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)"
