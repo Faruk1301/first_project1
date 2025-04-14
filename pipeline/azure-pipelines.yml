@@ -13,9 +13,9 @@ variables:
     value: 'infra'
   - name: terraformVersion
     value: '1.5.7'
-  - name: environment.dev
+  - name: environment_dev
     value: 'dev'
-  - name: environment.staging
+  - name: environment_staging
     value: 'staging'
   - name: app_service_name_dev
     value: 'demo-app'
@@ -90,7 +90,7 @@ stages:
               terraform validate
               terraform apply -auto-approve \
                 -var="app_service_name=$(app_service_name_dev)" \
-                -var="environment=$(environment.dev)"
+                -var="environment=$(environment_dev)"  # Using the correct environment variable
             displayName: 'Deploy Infrastructure (Dev)'
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
@@ -128,4 +128,5 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
