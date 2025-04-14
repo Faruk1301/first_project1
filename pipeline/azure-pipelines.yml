@@ -17,13 +17,13 @@ variables:
     value: 'dev'
   - name: environment.staging
     value: 'staging'
-
-# Set the app_service_name to 'demo-app'
-  - name: app_service_name
-    value: 'demo-app'  # Use 'demo-app' as the app service name
+  - name: app_service_name_dev
+    value: 'demo-app'
+  - name: app_service_name_staging
+    value: 'webapp-faruk-staging-001'
 
 pool:
-  vmImage: 'ubuntu-24.04'  # Use 'ubuntu-22.04' if issues with Terraform persist
+  vmImage: 'ubuntu-24.04'
 
 stages:
   - stage: Build
@@ -89,21 +89,21 @@ stages:
               terraform init -input=false
               terraform validate
               terraform apply -auto-approve \
-                -var="app_service_name=$(app_service_name)" \
-                -var="environment=$(environment.dev)"  # Pass the app_service_name dynamically here
+                -var="app_service_name=$(app_service_name_dev)" \
+                -var="environment=$(environment.dev)"
             displayName: 'Deploy Infrastructure (Dev)'
             env:
-              SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              CLIENT_ID: $(CLIENT_ID)
-              CLIENT_SECRET: $(CLIENT_SECRET)
-              TENANT_ID: $(TENANT_ID)
+              ARM_CLIENT_ID: $(CLIENT_ID)
+              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(TENANT_ID)
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Dev)'
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: '$(app_service_name)'  # Using 'demo-app' as the app service name here
+              appName: '$(app_service_name_dev)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
@@ -124,7 +124,8 @@ stages:
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: 'webapp-faruk-staging-001'  # Update this dynamically if needed for staging
+              appName: '$(app_service_name_staging)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
