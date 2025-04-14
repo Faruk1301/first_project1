@@ -36,7 +36,7 @@ stages:
       - job: BuildJob
         steps:
           - checkout: self
-          
+
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '$(pythonVersion)'
@@ -92,9 +92,6 @@ stages:
               cd $(tfWorkingDir)
               terraform init -input=false
               terraform validate
-              
-              # Run terraform apply directly without state management
-              echo "🚀 Running terraform apply..."
               terraform apply -auto-approve \
                 -var="app_service_name=$(app_service_name_dev)" \
                 -var="resource_group_name=$(resource_group_name_dev)" \
@@ -136,4 +133,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
-
