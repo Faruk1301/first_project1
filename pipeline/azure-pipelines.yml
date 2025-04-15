@@ -112,7 +112,10 @@ stages:
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
 
-                terraform plan -out=tfplan
+                terraform plan -out=tfplan \
+                  -var="resource_group_name=$(resource_group_name_dev)" \
+                  -var="environment=$(environment_dev)" \
+                  -var="app_service_name=$(app_service_name_dev)"
 
                 if [ -f tfplan ]; then
                   terraform apply -auto-approve tfplan
@@ -175,7 +178,10 @@ stages:
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=staging.terraform.tfstate"
 
-                terraform plan -out=tfplan
+                terraform plan -out=tfplan \
+                  -var="resource_group_name=$(resource_group_name_staging)" \
+                  -var="environment=$(environment_staging)" \
+                  -var="app_service_name=$(app_service_name_staging)"
 
                 if [ -f tfplan ]; then
                   terraform apply -auto-approve tfplan
