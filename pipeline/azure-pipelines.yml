@@ -97,17 +97,16 @@ stages:
                 export TF_LOG=DEBUG
                 terraform init -input=false
 
-                # Check if resource already exists in the state
-                if terraform state list | grep -q azurerm_resource_group.rg; then
-                  echo "Resource already in state."
+                # Explicitly import the resource group if it exists
+                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
+                if [ -n "$RESOURCE_EXISTS" ]; then
+                  echo "Importing existing resource group into state (Dev)..."
+                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
                 else
-                  echo "Checking if resource exists in Azure (Dev)..."
-                  RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
-                  if [ -n "$RESOURCE_EXISTS" ]; then
-                    echo "Importing existing resource group into state (Dev)..."
-                    terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
-                  fi
+                  echo "Resource group does not exist, will create new resource."
                 fi
+
+                terraform state list || echo "Terraform state is empty, proceeding with import."
 
                 terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_dev)" \
@@ -161,17 +160,16 @@ stages:
                 export TF_LOG=DEBUG
                 terraform init -input=false
 
-                # Check if resource already exists in the state
-                if terraform state list | grep -q azurerm_resource_group.rg; then
-                  echo "Resource already in state."
+                # Explicitly import the resource group if it exists
+                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
+                if [ -n "$RESOURCE_EXISTS" ]; then
+                  echo "Importing existing resource group into state (Staging)..."
+                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
                 else
-                  echo "Checking if resource exists in Azure (Staging)..."
-                  RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
-                  if [ -n "$RESOURCE_EXISTS" ]; then
-                    echo "Importing existing resource group into state (Staging)..."
-                    terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
-                  fi
+                  echo "Resource group does not exist, will create new resource."
                 fi
+
+                terraform state list || echo "Terraform state is empty, proceeding with import."
 
                 terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_staging)" \
@@ -192,4 +190,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
-
