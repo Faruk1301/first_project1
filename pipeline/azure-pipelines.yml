@@ -63,8 +63,11 @@ stages:
                 **/infra/**
                 **/__pycache__/**
 
-          - publish: $(Build.ArtifactStagingDirectory)/app.zip
-            artifact: drop
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Build Artifact'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
+              artifact: 'drop'
 
   - stage: Dev
     displayName: 'Dev Environment Deployment'
@@ -89,7 +92,7 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources (Dev)'
+            displayName: 'Terraform Init & Apply (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -137,7 +140,7 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources (Staging)'
+            displayName: 'Terraform Init & Apply (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
