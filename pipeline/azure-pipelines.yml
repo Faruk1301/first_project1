@@ -89,31 +89,38 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources (Dev)'
+            displayName: 'Terraform Init, Safe Import, and Plan (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
-                terraform init -input=false
-                terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev) || true
+                echo "🔧 Initializing Terraform..."
+                terraform init -input=false -reconfigure
+
+                echo "🔍 Checking if Resource Group is in state..."
+                terraform state show azurerm_resource_group.rg >/dev/null 2>&1
+
+                if [ $? -ne 0 ]; then
+                  echo "📥 Not in state. Attempting import..."
+                  terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)" || echo "⚠️ Import failed or not necessary, continuing..."
+                else
+                  echo "✅ Resource Group already in state."
+                fi
+
+                echo "📋 Running Terraform Plan..."
                 terraform plan \
                   -var="app_service_name=$(app_service_name_dev)" \
                   -var="resource_group_name=$(resource_group_name_dev)" \
                   -var="environment=$(environment_dev)" \
-                  && echo "Terraform Plan Successful" || echo "Terraform Plan Failed"
-          
+                  -out=tfplan-dev.out
+
           - task: Bash@3
             displayName: 'Apply Infrastructure (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
-                terraform apply -auto-approve -no-color \
-                  -var="app_service_name=$(app_service_name_dev)" \
-                  -var="resource_group_name=$(resource_group_name_dev)" \
-                  -var="environment=$(environment_dev)"
+                terraform apply -auto-approve tfplan-dev.out
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -147,7 +154,7 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
+                export TF_LOG=DEBUG
                 terraform init -input=false
                 terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging) || true
                 terraform plan \
@@ -155,14 +162,13 @@ stages:
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)" \
                   && echo "Terraform Plan Successful" || echo "Terraform Plan Failed"
-          
+
           - task: Bash@3
             displayName: 'Apply Infrastructure (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
                 terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_staging)" \
                   -var="resource_group_name=$(resource_group_name_staging)" \
