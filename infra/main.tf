@@ -1,6 +1,4 @@
 terraform {
-  backend "azurerm" {}
-
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -82,4 +80,3 @@ resource "azurerm_linux_web_app" "app" {
     type = "SystemAssigned"
   }
 }
-
