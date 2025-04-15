@@ -94,10 +94,9 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
+                export TF_LOG=DEBUG
                 terraform init -input=false
                 
-                # Check if the resource group already exists in Azure before importing
                 RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
 
                 if [ -z "$RESOURCE_EXISTS" ]; then
@@ -142,15 +141,26 @@ stages:
             artifact: drop
 
           - task: Bash@3
+            displayName: 'Install Terraform'
+            inputs:
+              targetType: 'inline'
+              script: |
+                sudo apt-get update
+                sudo apt-get install -y wget unzip
+                wget https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
+                unzip terraform_$(terraformVersion)_linux_amd64.zip
+                sudo mv terraform /usr/local/bin/
+                terraform -version
+
+          - task: Bash@3
             displayName: 'Initialize and Import Resources (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
+                export TF_LOG=DEBUG
                 terraform init -input=false
                 
-                # Check if the resource group already exists in Azure before importing
                 RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
 
                 if [ -z "$RESOURCE_EXISTS" ]; then
@@ -182,4 +192,5 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
