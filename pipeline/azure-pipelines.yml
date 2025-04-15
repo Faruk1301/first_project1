@@ -88,24 +88,8 @@ stages:
                 sudo mv terraform /usr/local/bin/
                 terraform -version
 
-          # Step to create backend resources in Azure
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'terraform-sc'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                # Create Resource Group for Backend
-                az group create --name terraform-backend-rg --location eastus
-
-                # Create Storage Account
-                az storage account create --name tfstatefaruk1234567 --resource-group terraform-backend-rg --location eastus --sku Standard_LRS
-
-                # Create Container for storing state files
-                az storage container create --name tfstate --account-name tfstatefaruk1234567
-
           - task: Bash@3
-            displayName: 'Import Resource Group (Dev)'
+            displayName: 'Initialize and Import Resources (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -115,31 +99,9 @@ stages:
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
-                
-                # Check if resource group is in Terraform state
-                if ! terraform state list | grep -q azurerm_resource_group.rg; then
-                  echo "Resource group not found in state. Importing..."
-                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
-                else
-                  echo "Resource group already managed by Terraform."
-                fi
 
-          - task: Bash@3
-            displayName: 'Initialize and Apply Terraform (Dev)'
-            inputs:
-              workingDirectory: '$(tfWorkingDir)'
-              targetType: 'inline'
-              script: |
-                export TF_LOG=DEBUG
-                terraform apply -auto-approve -no-color \
-                  -var="app_service_name=$(app_service_name_dev)" \
-                  -var="resource_group_name=$(resource_group_name_dev)" \
-                  -var="environment=$(environment_dev)"
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
+                terraform plan -out=tfplan
+                terraform apply -auto-approve tfplan
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Dev)'
@@ -175,7 +137,7 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Import Resource Group (Staging)'
+            displayName: 'Initialize and Import Resources (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -185,31 +147,9 @@ stages:
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=staging.terraform.tfstate"
-                
-                # Check if resource group is in Terraform state
-                if ! terraform state list | grep -q azurerm_resource_group.rg; then
-                  echo "Resource group not found in state. Importing..."
-                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
-                else
-                  echo "Resource group already managed by Terraform."
-                fi
 
-          - task: Bash@3
-            displayName: 'Initialize and Apply Terraform (Staging)'
-            inputs:
-              workingDirectory: '$(tfWorkingDir)'
-              targetType: 'inline'
-              script: |
-                export TF_LOG=DEBUG
-                terraform apply -auto-approve -no-color \
-                  -var="app_service_name=$(app_service_name_staging)" \
-                  -var="resource_group_name=$(resource_group_name_staging)" \
-                  -var="environment=$(environment_staging)"
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
+                terraform plan -out=tfplan
+                terraform apply -auto-approve tfplan
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Staging)'
@@ -220,4 +160,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
-
