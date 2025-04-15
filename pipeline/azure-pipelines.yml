@@ -108,8 +108,16 @@ stages:
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
 
+                # Ensure that tfplan is created successfully
                 terraform plan -out=tfplan
-                terraform apply -auto-approve tfplan
+
+                # Check if the tfplan file exists and apply it
+                if [ -f tfplan ]; then
+                  terraform apply -auto-approve tfplan
+                else
+                  echo "tfplan file not found, Terraform plan did not generate successfully."
+                  exit 1
+                fi
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Dev)'
@@ -161,8 +169,16 @@ stages:
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=staging.terraform.tfstate"
 
+                # Ensure that tfplan is created successfully
                 terraform plan -out=tfplan
-                terraform apply -auto-approve tfplan
+
+                # Check if the tfplan file exists and apply it
+                if [ -f tfplan ]; then
+                  terraform apply -auto-approve tfplan
+                else
+                  echo "tfplan file not found, Terraform plan did not generate successfully."
+                  exit 1
+                fi
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Staging)'
@@ -173,3 +189,4 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
