@@ -89,30 +89,31 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Plan Infrastructure (Dev)'
+            displayName: 'Initialize and Import Resources (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
                 export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
                 terraform init -input=false
-                terraform plan \
-                  -var="app_service_name=$(app_service_name_dev)" \
-                  -var="resource_group_name=$(resource_group_name_dev)" \
-                  -var="environment=$(environment_dev)" \
-                  && echo "Terraform Plan Successful" || echo "Terraform Plan Failed"
+                
+                # Check if the resource group already exists in Azure before importing
+                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
 
-          - task: Bash@3
-            displayName: 'Apply Infrastructure (Dev)'
-            inputs:
-              workingDirectory: '$(tfWorkingDir)'
-              targetType: 'inline'
-              script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
-                terraform apply -auto-approve -no-color \
-                  -var="app_service_name=$(app_service_name_dev)" \
-                  -var="resource_group_name=$(resource_group_name_dev)" \
-                  -var="environment=$(environment_dev)"
+                if [ -z "$RESOURCE_EXISTS" ]; then
+                  echo "Resource group does not exist, creating new one."
+                  terraform apply -auto-approve -no-color \
+                    -var="app_service_name=$(app_service_name_dev)" \
+                    -var="resource_group_name=$(resource_group_name_dev)" \
+                    -var="environment=$(environment_dev)"
+                else
+                  echo "Resource group exists, importing..."
+                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
+                  terraform apply -auto-approve -no-color \
+                    -var="app_service_name=$(app_service_name_dev)" \
+                    -var="resource_group_name=$(resource_group_name_dev)" \
+                    -var="environment=$(environment_dev)"
+                fi
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -141,30 +142,31 @@ stages:
             artifact: drop
 
           - task: Bash@3
-            displayName: 'Initialize and Plan Infrastructure (Staging)'
+            displayName: 'Initialize and Import Resources (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
                 export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
                 terraform init -input=false
-                terraform plan \
-                  -var="app_service_name=$(app_service_name_staging)" \
-                  -var="resource_group_name=$(resource_group_name_staging)" \
-                  -var="environment=$(environment_staging)" \
-                  && echo "Terraform Plan Successful" || echo "Terraform Plan Failed"
+                
+                # Check if the resource group already exists in Azure before importing
+                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
 
-          - task: Bash@3
-            displayName: 'Apply Infrastructure (Staging)'
-            inputs:
-              workingDirectory: '$(tfWorkingDir)'
-              targetType: 'inline'
-              script: |
-                export TF_LOG=DEBUG  # Enable verbose logging for troubleshooting
-                terraform apply -auto-approve -no-color \
-                  -var="app_service_name=$(app_service_name_staging)" \
-                  -var="resource_group_name=$(resource_group_name_staging)" \
-                  -var="environment=$(environment_staging)"
+                if [ -z "$RESOURCE_EXISTS" ]; then
+                  echo "Resource group does not exist, creating new one."
+                  terraform apply -auto-approve -no-color \
+                    -var="app_service_name=$(app_service_name_staging)" \
+                    -var="resource_group_name=$(resource_group_name_staging)" \
+                    -var="environment=$(environment_staging)"
+                else
+                  echo "Resource group exists, importing..."
+                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
+                  terraform apply -auto-approve -no-color \
+                    -var="app_service_name=$(app_service_name_staging)" \
+                    -var="resource_group_name=$(resource_group_name_staging)" \
+                    -var="environment=$(environment_staging)"
+                fi
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
