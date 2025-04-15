@@ -96,23 +96,22 @@ stages:
               script: |
                 export TF_LOG=DEBUG
                 terraform init -input=false
-                
-                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
 
-                if [ -z "$RESOURCE_EXISTS" ]; then
-                  echo "Resource group does not exist, creating new one."
-                  terraform apply -auto-approve -no-color \
-                    -var="app_service_name=$(app_service_name_dev)" \
-                    -var="resource_group_name=$(resource_group_name_dev)" \
-                    -var="environment=$(environment_dev)"
+                if terraform state list | grep -q azurerm_resource_group.rg; then
+                  echo "Resource already in state."
                 else
-                  echo "Resource group exists, importing..."
-                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
-                  terraform apply -auto-approve -no-color \
-                    -var="app_service_name=$(app_service_name_dev)" \
-                    -var="resource_group_name=$(resource_group_name_dev)" \
-                    -var="environment=$(environment_dev)"
+                  echo "Checking if resource exists in Azure..."
+                  RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
+                  if [ -n "$RESOURCE_EXISTS" ]; then
+                    echo "Importing existing resource group into state..."
+                    terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
+                  fi
                 fi
+
+                terraform apply -auto-approve -no-color \
+                  -var="app_service_name=$(app_service_name_dev)" \
+                  -var="resource_group_name=$(resource_group_name_dev)" \
+                  -var="environment=$(environment_dev)"
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -160,23 +159,22 @@ stages:
               script: |
                 export TF_LOG=DEBUG
                 terraform init -input=false
-                
-                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
 
-                if [ -z "$RESOURCE_EXISTS" ]; then
-                  echo "Resource group does not exist, creating new one."
-                  terraform apply -auto-approve -no-color \
-                    -var="app_service_name=$(app_service_name_staging)" \
-                    -var="resource_group_name=$(resource_group_name_staging)" \
-                    -var="environment=$(environment_staging)"
+                if terraform state list | grep -q azurerm_resource_group.rg; then
+                  echo "Resource already in state."
                 else
-                  echo "Resource group exists, importing..."
-                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
-                  terraform apply -auto-approve -no-color \
-                    -var="app_service_name=$(app_service_name_staging)" \
-                    -var="resource_group_name=$(resource_group_name_staging)" \
-                    -var="environment=$(environment_staging)"
+                  echo "Checking if resource exists in Azure..."
+                  RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
+                  if [ -n "$RESOURCE_EXISTS" ]; then
+                    echo "Importing existing resource group into state..."
+                    terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
+                  fi
                 fi
+
+                terraform apply -auto-approve -no-color \
+                  -var="app_service_name=$(app_service_name_staging)" \
+                  -var="resource_group_name=$(resource_group_name_staging)" \
+                  -var="environment=$(environment_staging)"
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
