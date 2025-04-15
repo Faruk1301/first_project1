@@ -106,7 +106,7 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform init -reconfigure -input=false \
+                terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
@@ -169,7 +169,7 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform init -reconfigure -input=false \
+                terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
@@ -193,4 +193,5 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
