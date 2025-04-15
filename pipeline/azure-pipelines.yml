@@ -89,27 +89,27 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources (Dev)'
+            displayName: 'Import Resource Group (Dev)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
+                terraform init -input=false
+                # Check if resource group is in Terraform state
+                if ! terraform state list | grep -q azurerm_resource_group.rg; then
+                  echo "Resource group not found in state. Importing..."
+                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
+                else
+                  echo "Resource group already managed by Terraform."
+                fi
+
+          - task: Bash@3
+            displayName: 'Initialize and Apply Terraform (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
                 export TF_LOG=DEBUG
-                terraform init -input=false
-
-                # Check if the resource group exists and import it if necessary
-                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_dev) --query "id" -o tsv)
-                if [ -n "$RESOURCE_EXISTS" ]; then
-                  echo "Resource group exists, importing into Terraform state..."
-                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)
-                else
-                  echo "Resource group does not exist. Terraform will create it."
-                fi
-
-                # Explicitly check if the resource is imported
-                terraform state list || echo "No resources imported, proceeding with apply."
-
-                # Apply the configuration
                 terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_dev)" \
                   -var="resource_group_name=$(resource_group_name_dev)" \
@@ -154,27 +154,27 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Initialize and Import Resources (Staging)'
+            displayName: 'Import Resource Group (Staging)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
+                terraform init -input=false
+                # Check if resource group is in Terraform state
+                if ! terraform state list | grep -q azurerm_resource_group.rg; then
+                  echo "Resource group not found in state. Importing..."
+                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
+                else
+                  echo "Resource group already managed by Terraform."
+                fi
+
+          - task: Bash@3
+            displayName: 'Initialize and Apply Terraform (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
                 export TF_LOG=DEBUG
-                terraform init -input=false
-
-                # Check if the resource group exists and import it if necessary
-                RESOURCE_EXISTS=$(az group show --name $(resource_group_name_staging) --query "id" -o tsv)
-                if [ -n "$RESOURCE_EXISTS" ]; then
-                  echo "Resource group exists, importing into Terraform state..."
-                  terraform import azurerm_resource_group.rg /subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)
-                else
-                  echo "Resource group does not exist. Terraform will create it."
-                fi
-
-                # Explicitly check if the resource is imported
-                terraform state list || echo "No resources imported, proceeding with apply."
-
-                # Apply the configuration
                 terraform apply -auto-approve -no-color \
                   -var="app_service_name=$(app_service_name_staging)" \
                   -var="resource_group_name=$(resource_group_name_staging)" \
@@ -194,3 +194,4 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
