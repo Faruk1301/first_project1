@@ -88,13 +88,34 @@ stages:
                 sudo mv terraform /usr/local/bin/
                 terraform -version
 
+          # Step to create backend resources in Azure
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'terraform-sc'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Create Resource Group for Backend
+                az group create --name terraform-backend-rg --location eastus
+
+                # Create Storage Account
+                az storage account create --name tfstatefaruk1234567 --resource-group terraform-backend-rg --location eastus --sku Standard_LRS
+
+                # Create Container for storing state files
+                az storage container create --name tfstate --account-name tfstatefaruk1234567
+
           - task: Bash@3
             displayName: 'Import Resource Group (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform init -input=false
+                terraform init -input=false \
+                  -backend-config="resource_group_name=terraform-backend-rg" \
+                  -backend-config="storage_account_name=tfstatefaruk1234567" \
+                  -backend-config="container_name=tfstate" \
+                  -backend-config="key=dev.terraform.tfstate"
+                
                 # Check if resource group is in Terraform state
                 if ! terraform state list | grep -q azurerm_resource_group.rg; then
                   echo "Resource group not found in state. Importing..."
@@ -159,7 +180,12 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform init -input=false
+                terraform init -input=false \
+                  -backend-config="resource_group_name=terraform-backend-rg" \
+                  -backend-config="storage_account_name=tfstatefaruk1234567" \
+                  -backend-config="container_name=tfstate" \
+                  -backend-config="key=staging.terraform.tfstate"
+                
                 # Check if resource group is in Terraform state
                 if ! terraform state list | grep -q azurerm_resource_group.rg; then
                   echo "Resource group not found in state. Importing..."
