@@ -79,6 +79,16 @@ stages:
           - download: current
             artifact: drop
 
+          # Authenticate with Azure using Azure CLI
+          - task: AzureCLI@2
+            displayName: 'Authenticate with Azure'
+            inputs:
+              azureSubscription: 'terraform-sc'  # Service Connection Name
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account set --subscription $(subscription_id)
+
           - task: Bash@3
             displayName: 'Install Terraform'
             inputs:
@@ -97,18 +107,12 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
-                export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
-                export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
-                export ARM_TENANT_ID=$(ARM_TENANT_ID)
-
                 terraform init -input=false \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
 
-                # Ensure that tfplan is created successfully
                 terraform plan -out=tfplan
 
                 # Check if the tfplan file exists and apply it
@@ -140,6 +144,16 @@ stages:
           - download: current
             artifact: drop
 
+          # Authenticate with Azure using Azure CLI
+          - task: AzureCLI@2
+            displayName: 'Authenticate with Azure'
+            inputs:
+              azureSubscription: 'terraform-sc'  # Service Connection Name
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account set --subscription $(subscription_id)
+
           - task: Bash@3
             displayName: 'Install Terraform'
             inputs:
@@ -158,18 +172,12 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
-                export ARM_CLIENT_SECRET=$(ARM_CLIENT_SECRET)
-                export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
-                export ARM_TENANT_ID=$(ARM_TENANT_ID)
-
                 terraform init -input=false \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=staging.terraform.tfstate"
 
-                # Ensure that tfplan is created successfully
                 terraform plan -out=tfplan
 
                 # Check if the tfplan file exists and apply it
