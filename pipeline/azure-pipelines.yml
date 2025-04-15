@@ -79,11 +79,10 @@ stages:
           - download: current
             artifact: drop
 
-          # Authenticate with Azure using Azure CLI
           - task: AzureCLI@2
             displayName: 'Authenticate with Azure'
             inputs:
-              azureSubscription: 'terraform-sc'  # Service Connection Name
+              azureSubscription: 'terraform-sc'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               inlineScript: |
@@ -107,7 +106,7 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform init -input=false \
+                terraform init -reconfigure -input=false \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
@@ -115,7 +114,6 @@ stages:
 
                 terraform plan -out=tfplan
 
-                # Check if the tfplan file exists and apply it
                 if [ -f tfplan ]; then
                   terraform apply -auto-approve tfplan
                 else
@@ -144,11 +142,10 @@ stages:
           - download: current
             artifact: drop
 
-          # Authenticate with Azure using Azure CLI
           - task: AzureCLI@2
             displayName: 'Authenticate with Azure'
             inputs:
-              azureSubscription: 'terraform-sc'  # Service Connection Name
+              azureSubscription: 'terraform-sc'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               inlineScript: |
@@ -172,7 +169,7 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                terraform init -input=false \
+                terraform init -reconfigure -input=false \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
@@ -180,7 +177,6 @@ stages:
 
                 terraform plan -out=tfplan
 
-                # Check if the tfplan file exists and apply it
                 if [ -f tfplan ]; then
                   terraform apply -auto-approve tfplan
                 else
