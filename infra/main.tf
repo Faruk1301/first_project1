@@ -43,6 +43,28 @@ variable "environment" {
   type        = string
 }
 
+# Add missing variables for Azure credentials
+variable "client_id" {
+  description = "The client ID for the Azure Active Directory application"
+  type        = string
+}
+
+variable "client_secret" {
+  description = "The client secret for the Azure Active Directory application"
+  type        = string
+  sensitive   = true
+}
+
+variable "tenant_id" {
+  description = "The tenant ID for the Azure Active Directory"
+  type        = string
+}
+
+variable "subscription_id" {
+  description = "The subscription ID for the Azure account"
+  type        = string
+}
+
 # Resource Group (Ensure it exists)
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
@@ -80,3 +102,4 @@ resource "azurerm_linux_web_app" "app" {
     type = "SystemAssigned"
   }
 }
+
