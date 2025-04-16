@@ -1,5 +1,10 @@
 terraform {
-  backend "azurerm" {}
+  backend "azurerm" {
+    resource_group_name   = "terraform-backend-rg"
+    storage_account_name  = "tfstatefaruk1234567"
+    container_name        = "tfstate"
+    key                   = "dev.terraform.tfstate"
+  }
 
   required_providers {
     azurerm = {
@@ -104,3 +109,4 @@ resource "azurerm_linux_web_app" "app" {
     type = "SystemAssigned"
   }
 }
+
