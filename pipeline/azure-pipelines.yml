@@ -93,7 +93,7 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Terraform Init & Apply (Dev)'
+            displayName: 'Terraform Init, Import & Apply (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -103,6 +103,10 @@ stages:
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
+
+                echo "Checking if resource group is already managed in state..."
+                terraform state list | grep azurerm_resource_group.rg || \
+                terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)"
 
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_dev)" \
@@ -200,6 +204,7 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
 
 
