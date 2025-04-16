@@ -26,25 +26,19 @@ variable "client_id" {}
 variable "client_secret" {}
 variable "tenant_id" {}
 
-resource "azurerm_app_service_plan" "app_service_plan" {
+resource "azurerm_service_plan" "app_service_plan" {
   name                = "${var.environment}-asp"
   location            = "East US"
   resource_group_name = var.resource_group_name
-  kind                = "Linux"
-
-  sku {
-    tier = "Basic"
-    size = "B1"
-  }
-
-  reserved = true
+  os_type             = "Linux"
+  sku_name            = "B1" # Replacing the sku block
 }
 
 resource "azurerm_app_service" "web_app" {
   name                = var.app_service_name
   location            = "East US"
   resource_group_name = var.resource_group_name
-  app_service_plan_id = azurerm_app_service_plan.app_service_plan.id
+  app_service_plan_id = azurerm_service_plan.app_service_plan.id
 
   site_config {
     linux_fx_version = "PYTHON|3.10"
@@ -54,5 +48,4 @@ resource "azurerm_app_service" "web_app" {
     "WEBSITES_PORT" = "8000"
   }
 }
-
 
