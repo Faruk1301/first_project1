@@ -93,22 +93,26 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Terraform Init, Import & Apply (Dev)'
+            displayName: 'Terraform Init & Apply (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
+                echo "==== DEBUG ENV VARS (Dev) ===="
+                echo "SUBSCRIPTION_ID: $SUBSCRIPTION_ID"
+                echo "CLIENT_ID: $CLIENT_ID"
+                echo "CLIENT_SECRET: [REDACTED]"
+                echo "TENANT_ID: $TENANT_ID"
+                echo "ENV: $(environment_dev)"
+                echo "APP_NAME: $(app_service_name_dev)"
+                echo "RG: $(resource_group_name_dev)"
+                echo "=============================="
+
                 terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
-
-                if terraform state show azurerm_resource_group.rg > /dev/null 2>&1; then
-                  echo "Resource group already in Terraform state."
-                else
-                  terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)" || true
-                fi
 
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_dev)" \
@@ -160,22 +164,26 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Terraform Init, Import & Apply (Staging)'
+            displayName: 'Terraform Init & Apply (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
+                echo "==== DEBUG ENV VARS (Staging) ===="
+                echo "SUBSCRIPTION_ID: $SUBSCRIPTION_ID"
+                echo "CLIENT_ID: $CLIENT_ID"
+                echo "CLIENT_SECRET: [REDACTED]"
+                echo "TENANT_ID: $TENANT_ID"
+                echo "ENV: $(environment_staging)"
+                echo "APP_NAME: $(app_service_name_staging)"
+                echo "RG: $(resource_group_name_staging)"
+                echo "==================================="
+
                 terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=staging.terraform.tfstate"
-
-                if terraform state show azurerm_resource_group.rg > /dev/null 2>&1; then
-                  echo "Resource group already in Terraform state."
-                else
-                  terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)" || true
-                fi
 
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_staging)" \
@@ -202,6 +210,7 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
 
 
