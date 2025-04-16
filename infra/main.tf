@@ -70,6 +70,7 @@ variable "tenant_id" {
 variable "subscription_id" {
   description = "The subscription ID for the Azure account"
   type        = string
+  default     = "00000000-0000-0000-0000-000000000000"
 }
 
 # Resource Group (Ensure it exists)
