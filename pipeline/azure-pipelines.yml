@@ -104,9 +104,11 @@ stages:
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=dev.terraform.tfstate"
 
-                echo "Checking if resource group is already managed in state..."
-                terraform state list | grep azurerm_resource_group.rg || \
-                terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)"
+                if terraform state show azurerm_resource_group.rg > /dev/null 2>&1; then
+                  echo "Resource group already in Terraform state."
+                else
+                  terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_dev)" || true
+                fi
 
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_dev)" \
@@ -117,12 +119,7 @@ stages:
                   -var="client_secret=$(CLIENT_SECRET)" \
                   -var="tenant_id=$(TENANT_ID)"
 
-                if [ -f tfplan ]; then
-                  terraform apply -auto-approve tfplan
-                else
-                  echo "tfplan file not found, Terraform plan did not generate successfully."
-                  exit 1
-                fi
+                terraform apply -auto-approve tfplan
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -163,7 +160,7 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Terraform Init & Apply (Staging)'
+            displayName: 'Terraform Init, Import & Apply (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
@@ -174,6 +171,12 @@ stages:
                   -backend-config="container_name=tfstate" \
                   -backend-config="key=staging.terraform.tfstate"
 
+                if terraform state show azurerm_resource_group.rg > /dev/null 2>&1; then
+                  echo "Resource group already in Terraform state."
+                else
+                  terraform import azurerm_resource_group.rg "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(resource_group_name_staging)" || true
+                fi
+
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)" \
@@ -183,12 +186,7 @@ stages:
                   -var="client_secret=$(CLIENT_SECRET)" \
                   -var="tenant_id=$(TENANT_ID)"
 
-                if [ -f tfplan ]; then
-                  terraform apply -auto-approve tfplan
-                else
-                  echo "tfplan file not found, Terraform plan did not generate successfully."
-                  exit 1
-                fi
+                terraform apply -auto-approve tfplan
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -204,6 +202,7 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
 
 
