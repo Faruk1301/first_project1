@@ -1,4 +1,6 @@
 terraform {
+  backend "azurerm" {}
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -43,7 +45,7 @@ variable "environment" {
   type        = string
 }
 
-# Add missing variables for Azure credentials
+# Azure credentials
 variable "client_id" {
   description = "The client ID for the Azure Active Directory application"
   type        = string
@@ -102,4 +104,3 @@ resource "azurerm_linux_web_app" "app" {
     type = "SystemAssigned"
   }
 }
-
