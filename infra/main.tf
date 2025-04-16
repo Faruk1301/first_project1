@@ -30,13 +30,14 @@ resource "azurerm_app_service_plan" "app_service_plan" {
   name                = "${var.environment}-asp"
   location            = "East US"
   resource_group_name = var.resource_group_name
+  kind                = "Linux"
 
   sku {
     tier = "Basic"
     size = "B1"
   }
 
-  os_type = "Linux"
+  reserved = true
 }
 
 resource "azurerm_app_service" "web_app" {
@@ -53,4 +54,5 @@ resource "azurerm_app_service" "web_app" {
     "WEBSITES_PORT" = "8000"
   }
 }
+
 
