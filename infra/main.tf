@@ -10,7 +10,7 @@ terraform {
     resource_group_name  = "terraform-backend-rg"
     storage_account_name = "tfstatefaruk1234567"
     container_name       = "tfstate"
-    key                  = "dev.terraform.tfstate"
+    key                  = "dev.terraform.tfstate" # <-- change to staging.terraform.tfstate for staging
   }
 }
 
@@ -26,21 +26,23 @@ variable "client_id" {}
 variable "client_secret" {}
 variable "tenant_id" {}
 
+# ✅ Automatically create the resource group (if doesn't exist)
+data "azurerm_resource_group" "rg" {
+  name = var.resource_group_name
+}
+
 resource "azurerm_service_plan" "app_service_plan" {
   name                = "${var.environment}-asp"
   location            = "East US"
-  resource_group_name = var.resource_group_name
+  resource_group_name = data.azurerm_resource_group.rg.name
   os_type             = "Linux"
-  
-  # Upgrade the service plan SKU as needed
-  sku_name            = "S1"  # For upgrading to a Standard tier, for example
- 
+  sku_name            = "S1"
 }
 
 resource "azurerm_app_service" "web_app" {
   name                = var.app_service_name
   location            = "East US"
-  resource_group_name = var.resource_group_name
+  resource_group_name = data.azurerm_resource_group.rg.name
   app_service_plan_id = azurerm_service_plan.app_service_plan.id
 
   site_config {
