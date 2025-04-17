@@ -31,7 +31,10 @@ resource "azurerm_service_plan" "app_service_plan" {
   location            = "East US"
   resource_group_name = var.resource_group_name
   os_type             = "Linux"
-  sku_name            = "B1" # Replacing the sku block
+  
+  # Upgrade the service plan SKU as needed
+  sku_name            = "S1"  # For upgrading to a Standard tier, for example
+  capacity            = 1     # Define the instance count if scaling is needed
 }
 
 resource "azurerm_app_service" "web_app" {
@@ -48,4 +51,3 @@ resource "azurerm_app_service" "web_app" {
     "WEBSITES_PORT" = "8000"
   }
 }
-
