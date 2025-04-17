@@ -34,7 +34,7 @@ resource "azurerm_service_plan" "app_service_plan" {
   
   # Upgrade the service plan SKU as needed
   sku_name            = "S1"  # For upgrading to a Standard tier, for example
-  capacity            = 1     # Define the instance count if scaling is needed
+ 
 }
 
 resource "azurerm_app_service" "web_app" {
