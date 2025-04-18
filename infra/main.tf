@@ -10,7 +10,7 @@ terraform {
     resource_group_name  = "terraform-backend-rg"
     storage_account_name = "tfstatefaruk1234567"
     container_name       = "tfstate"
-    key                  = "dev.terraform.tfstate"
+    key                  = "dev.terraform.tfstate"  # Change this in pipeline for staging
   }
 }
 
@@ -22,23 +22,23 @@ provider "azurerm" {
   tenant_id       = var.tenant_id
 }
 
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name
-  location = var.location
+# ✅ Use existing resource group instead of creating one
+data "azurerm_resource_group" "rg" {
+  name = var.resource_group_name
 }
 
 resource "azurerm_service_plan" "app_service_plan" {
   name                = "${var.environment}-asp"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   os_type             = "Linux"
   sku_name            = "S1"
 }
 
 resource "azurerm_app_service" "web_app" {
   name                = var.app_service_name
-  location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   app_service_plan_id = azurerm_service_plan.app_service_plan.id
 
   site_config {
@@ -50,40 +50,31 @@ resource "azurerm_app_service" "web_app" {
   }
 }
 
-# ----------------------------
-# Variable Declarations Below
-# ----------------------------
-
+# ✅ Variable Declarations
 variable "subscription_id" {
-  description = "Azure subscription ID"
+  description = "Azure Subscription ID"
   type        = string
 }
 
 variable "client_id" {
-  description = "Azure client ID"
+  description = "Azure Service Principal Client ID"
   type        = string
 }
 
 variable "client_secret" {
-  description = "Azure client secret"
+  description = "Azure Service Principal Client Secret"
   type        = string
   sensitive   = true
 }
 
 variable "tenant_id" {
-  description = "Azure tenant ID"
+  description = "Azure Tenant ID"
   type        = string
 }
 
 variable "resource_group_name" {
-  description = "Name of the resource group"
+  description = "Name of the existing resource group"
   type        = string
-}
-
-variable "location" {
-  description = "Azure location"
-  type        = string
-  default     = "East US"
 }
 
 variable "environment" {
@@ -92,6 +83,6 @@ variable "environment" {
 }
 
 variable "app_service_name" {
-  description = "Name of the App Service"
+  description = "Name of the Azure App Service"
   type        = string
 }
