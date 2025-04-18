@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"  # Ensure you're using the latest stable version
+      version = "~> 3.0"
     }
   }
 
@@ -10,7 +10,7 @@ terraform {
     resource_group_name  = "terraform-backend-rg"
     storage_account_name = "tfstatefaruk1234567"
     container_name       = "tfstate"
-    key                  = "dev.terraform.tfstate"  # Change to "staging.terraform.tfstate" for staging
+    key                  = "dev.terraform.tfstate"
   }
 }
 
@@ -22,15 +22,14 @@ provider "azurerm" {
   tenant_id       = var.tenant_id
 }
 
-# ✅ Automatically create the resource group if it doesn't exist
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
-  location = "East US"
+  location = var.location
 }
 
 resource "azurerm_service_plan" "app_service_plan" {
   name                = "${var.environment}-asp"
-  location            = "East US"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
   os_type             = "Linux"
   sku_name            = "S1"
@@ -38,7 +37,7 @@ resource "azurerm_service_plan" "app_service_plan" {
 
 resource "azurerm_app_service" "web_app" {
   name                = var.app_service_name
-  location            = "East US"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
   app_service_plan_id = azurerm_service_plan.app_service_plan.id
 
@@ -51,3 +50,48 @@ resource "azurerm_app_service" "web_app" {
   }
 }
 
+# ----------------------------
+# Variable Declarations Below
+# ----------------------------
+
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
+variable "client_id" {
+  description = "Azure client ID"
+  type        = string
+}
+
+variable "client_secret" {
+  description = "Azure client secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "tenant_id" {
+  description = "Azure tenant ID"
+  type        = string
+}
+
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+}
+
+variable "location" {
+  description = "Azure location"
+  type        = string
+  default     = "East US"
+}
+
+variable "environment" {
+  description = "Deployment environment (e.g. dev, staging)"
+  type        = string
+}
+
+variable "app_service_name" {
+  description = "Name of the App Service"
+  type        = string
+}
