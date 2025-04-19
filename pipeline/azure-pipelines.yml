@@ -105,13 +105,13 @@ stages:
                 echo "ENV: $(environment_dev)"
                 echo "APP_NAME: $(app_service_name_dev)"
                 echo "RG: $(resource_group_name_dev)"
-                echo "=============================="
+                echo "==============================="
 
                 terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
-                  -backend-config="key=dev.terraform.tfstate"
+                  -backend-config="key=$(environment_dev).terraform.tfstate"  # Dynamic backend key based on environment
 
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_dev)" \
@@ -182,7 +182,7 @@ stages:
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
-                  -backend-config="key=staging.terraform.tfstate"
+                  -backend-config="key=$(environment_staging).terraform.tfstate"  # Dynamic backend key based on environment
 
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_staging)" \
