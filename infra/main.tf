@@ -29,19 +29,19 @@ resource "azurerm_resource_group" "rg" {
   location = var.resource_group_location
 }
 
-# Use existing resource group if already created (for dev stage, or staging when using existing)
+# Use existing resource group if already created
 data "azurerm_resource_group" "rg" {
-  count = var.create_resource_group || (var.environment == "dev" || var.environment == "staging") ? 0 : 1
+  count = var.create_resource_group ? 0 : 1
   name  = var.resource_group_name
 }
 
 # Dynamically select resource group name and location
 locals {
-  rg_name     = var.create_resource_group && (var.environment == "dev" || var.environment == "staging") ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-  rg_location = var.create_resource_group && (var.environment == "dev" || var.environment == "staging") ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
+  rg_name     = var.create_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
+  rg_location = var.create_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
 }
 
-# App Service Plan for both dev and staging
+# App Service Plan
 resource "azurerm_service_plan" "app_service_plan" {
   name                = "${var.environment}-asp"
   location            = local.rg_location
@@ -50,7 +50,7 @@ resource "azurerm_service_plan" "app_service_plan" {
   sku_name            = "S1"
 }
 
-# Switch to azurerm_linux_web_app for Linux-based web apps
+# Azure Linux Web App
 resource "azurerm_linux_web_app" "web_app" {
   name                = var.app_service_name
   location            = local.rg_location
@@ -66,12 +66,7 @@ resource "azurerm_linux_web_app" "web_app" {
   }
 }
 
-# Variable Declarations with multi-line block syntax
-variable "create_resource_group" {
-  type    = bool
-  default = false
-}
-
+# Variables
 variable "subscription_id" {
   type = string
 }
@@ -98,6 +93,11 @@ variable "resource_group_location" {
   default = "East US"
 }
 
+variable "create_resource_group" {
+  type    = bool
+  default = false
+}
+
 variable "environment" {
   type = string
 }
@@ -106,6 +106,3 @@ variable "app_service_name" {
   type = string
 }
 
-variable "app_service_plan_id" {
-  type = string
-}
