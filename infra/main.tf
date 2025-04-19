@@ -76,5 +76,9 @@ variable "app_service_plan_name" {
 
 variable "app_service_name" {
   type = string
-} 
+}
 
+# Additional variables for Staging (if needed)
+variable "environment" {
+  type = string
+}
