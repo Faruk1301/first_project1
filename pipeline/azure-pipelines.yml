@@ -13,7 +13,7 @@ variables:
     value: 'infra'
   - name: terraformVersion
     value: '1.5.7'
-
+  
   - name: environment_dev
     value: 'dev'
   - name: environment_staging
@@ -243,6 +243,7 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+
 
 
 
