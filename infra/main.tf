@@ -50,12 +50,12 @@ resource "azurerm_service_plan" "app_service_plan" {
   sku_name            = "S1"
 }
 
-# Switch to azurerm_linux_web_app for Linux-based web apps
+# Use the app_service_plan_id variable here
 resource "azurerm_linux_web_app" "web_app" {
   name                = var.app_service_name
   location            = local.rg_location
   resource_group_name = local.rg_name
-  app_service_plan_id = azurerm_service_plan.app_service_plan.id
+  service_plan_id     = var.app_service_plan_id  # Use the app_service_plan_id variable here
 
   site_config {
     linux_fx_version = "PYTHON|3.10"
@@ -67,41 +67,13 @@ resource "azurerm_linux_web_app" "web_app" {
 }
 
 # Variable Declarations
-variable "subscription_id" {
-  type = string
-}
-
-variable "client_id" {
-  type = string
-}
-
-variable "client_secret" {
-  type      = string
-  sensitive = true
-}
-
-variable "tenant_id" {
-  type = string
-}
-
-variable "resource_group_name" {
-  type = string
-}
-
-variable "resource_group_location" {
-  type    = string
-  default = "East US"
-}
-
-variable "create_resource_group" {
-  type    = bool
-  default = false
-}
-
-variable "environment" {
-  type = string
-}
-
-variable "app_service_name" {
-  type = string
-}
+variable "subscription_id" { type = string }
+variable "client_id" { type = string }
+variable "client_secret" { type = string, sensitive = true }
+variable "tenant_id" { type = string }
+variable "resource_group_name" { type = string }
+variable "resource_group_location" { type = string, default = "East US" }
+variable "create_resource_group" { type = bool, default = false }
+variable "environment" { type = string }
+variable "app_service_name" { type = string }
+variable "app_service_plan_id" { type = string }  # Declare the app_service_plan_id variable here
