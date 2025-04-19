@@ -23,9 +23,9 @@ variables:
   - name: app_service_name_staging
     value: 'webapp-faruk-staging-001'
   - name: resource_group_name_dev
-    value: 'my-resource-group-dev'  # Ensure this matches your existing resource group
+    value: 'my-resource-group-dev'
   - name: resource_group_name_staging
-    value: 'my-resource-group-staging'  # Ensure this matches your existing resource group
+    value: 'my-resource-group-staging'
 
 pool:
   vmImage: 'ubuntu-24.04'
@@ -92,27 +92,28 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Terraform Init & Apply (Dev)'
+            displayName: 'Terraform Init (Dev)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                echo "==== DEBUG ENV VARS (Dev) ===="
-                echo "SUBSCRIPTION_ID: $SUBSCRIPTION_ID"
-                echo "CLIENT_ID: $CLIENT_ID"
-                echo "CLIENT_SECRET: [REDACTED]"
-                echo "TENANT_ID: $TENANT_ID"
-                echo "ENV: $(environment_dev)"
-                echo "APP_NAME: $(app_service_name_dev)"
-                echo "RG: $(resource_group_name_dev)"
-                echo "==============================="
-
                 terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
-                  -backend-config="key=$(environment_dev).terraform.tfstate"  # Dynamic backend key based on environment
+                  -backend-config="key=$(environment_dev).terraform.tfstate"
+            env:
+              ARM_CLIENT_ID: $(CLIENT_ID)
+              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(TENANT_ID)
 
+          - task: Bash@3
+            displayName: 'Terraform Plan (Dev)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_dev)" \
                   -var="environment=$(environment_dev)" \
@@ -121,8 +122,24 @@ stages:
                   -var="client_id=$(CLIENT_ID)" \
                   -var="client_secret=$(CLIENT_SECRET)" \
                   -var="tenant_id=$(TENANT_ID)"
+            env:
+              ARM_CLIENT_ID: $(CLIENT_ID)
+              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(TENANT_ID)
 
-                terraform apply -auto-approve tfplan
+          - task: Bash@3
+            displayName: 'Terraform Apply (Dev)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
+                if [ -f tfplan ]; then
+                  terraform apply -auto-approve tfplan
+                else
+                  echo "tfplan not found. Skipping apply."
+                  exit 1
+                fi
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -163,27 +180,28 @@ stages:
                 terraform -version
 
           - task: Bash@3
-            displayName: 'Terraform Init & Apply (Staging)'
+            displayName: 'Terraform Init (Staging)'
             inputs:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
-                echo "==== DEBUG ENV VARS (Staging) ===="
-                echo "SUBSCRIPTION_ID: $SUBSCRIPTION_ID"
-                echo "CLIENT_ID: $CLIENT_ID"
-                echo "CLIENT_SECRET: [REDACTED]"
-                echo "TENANT_ID: $TENANT_ID"
-                echo "ENV: $(environment_staging)"
-                echo "APP_NAME: $(app_service_name_staging)"
-                echo "RG: $(resource_group_name_staging)"
-                echo "==================================="
-
                 terraform init -input=false -reconfigure \
                   -backend-config="resource_group_name=terraform-backend-rg" \
                   -backend-config="storage_account_name=tfstatefaruk1234567" \
                   -backend-config="container_name=tfstate" \
-                  -backend-config="key=$(environment_staging).terraform.tfstate"  # Dynamic backend key based on environment
+                  -backend-config="key=$(environment_staging).terraform.tfstate"
+            env:
+              ARM_CLIENT_ID: $(CLIENT_ID)
+              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(TENANT_ID)
 
+          - task: Bash@3
+            displayName: 'Terraform Plan (Staging)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)" \
@@ -191,10 +209,25 @@ stages:
                   -var="subscription_id=$(SUBSCRIPTION_ID)" \
                   -var="client_id=$(CLIENT_ID)" \
                   -var="client_secret=$(CLIENT_SECRET)" \
-                  -var="tenant_id=$(TENANT_ID)" \
-                  -no-color
+                  -var="tenant_id=$(TENANT_ID)"
+            env:
+              ARM_CLIENT_ID: $(CLIENT_ID)
+              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
+              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+              ARM_TENANT_ID: $(TENANT_ID)
 
-                terraform apply -auto-approve tfplan || { echo 'Terraform Apply failed'; exit 1; }
+          - task: Bash@3
+            displayName: 'Terraform Apply (Staging)'
+            inputs:
+              workingDirectory: '$(tfWorkingDir)'
+              targetType: 'inline'
+              script: |
+                if [ -f tfplan ]; then
+                  terraform apply -auto-approve tfplan
+                else
+                  echo "tfplan not found. Skipping apply."
+                  exit 1
+                fi
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -210,8 +243,6 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
-
 
 
 
