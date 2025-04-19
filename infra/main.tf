@@ -24,6 +24,22 @@ data "azurerm_resource_group" "rg" {
 locals {
   rg_name     = data.azurerm_resource_group.rg.name
   rg_location = data.azurerm_resource_group.rg.location
+} 
+resource "azurerm_linux_web_app" "web_app" {
+  name                = var.app_service_name  # Should be "demo-app-faruk-dev-001"
+  location            = local.rg_location
+  resource_group_name = local.rg_name
+  service_plan_id     = azurerm_service_plan.app_service_plan.id
+
+  site_config {
+    application_stack {
+      python_version = "3.10"
+    }
+  }
+
+  app_settings = {
+    "WEBSITES_PORT" = "8000"
+  }
 }
 
 # Variables
