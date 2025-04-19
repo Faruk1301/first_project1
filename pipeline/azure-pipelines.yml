@@ -81,6 +81,15 @@ stages:
           - download: current
             artifact: drop
 
+          - script: |
+              echo "resource_group_name_dev: $(resource_group_name_dev)"
+              echo "app_service_name_dev: $(app_service_name_dev)"
+              echo "subscription_id: $(SUBSCRIPTION_ID)"
+              echo "client_id: $(CLIENT_ID)"
+              echo "client_secret: $(CLIENT_SECRET)"
+              echo "tenant_id: $(TENANT_ID)"
+            displayName: 'Debug Variables for Dev'
+
           - task: Bash@3
             displayName: 'Install Terraform'
             inputs:
@@ -170,6 +179,15 @@ stages:
           - download: current
             artifact: drop
 
+          - script: |
+              echo "resource_group_name_staging: $(resource_group_name_staging)"
+              echo "app_service_name_staging: $(app_service_name_staging)"
+              echo "subscription_id: $(SUBSCRIPTION_ID)"
+              echo "client_id: $(CLIENT_ID)"
+              echo "client_secret: $(CLIENT_SECRET)"
+              echo "tenant_id: $(TENANT_ID)"
+            displayName: 'Debug Variables for Staging'
+
           - task: Bash@3
             displayName: 'Install Terraform'
             inputs:
@@ -247,4 +265,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
