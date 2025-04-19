@@ -81,15 +81,6 @@ stages:
           - download: current
             artifact: drop
 
-          - script: |
-              echo "resource_group_name_dev: $(resource_group_name_dev)"
-              echo "app_service_name_dev: $(app_service_name_dev)"
-              echo "subscription_id: $(SUBSCRIPTION_ID)"
-              echo "client_id: $(CLIENT_ID)"
-              echo "client_secret: $(CLIENT_SECRET)"
-              echo "tenant_id: $(TENANT_ID)"
-            displayName: 'Debug Variables for Dev'
-
           - task: Bash@3
             displayName: 'Install Terraform'
             inputs:
@@ -125,15 +116,29 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
+                # Export Dev-specific variables
+                export RESOURCE_GROUP_NAME=$(resource_group_name_dev)
+                export APP_SERVICE_NAME=$(app_service_name_dev)
+                export APP_SERVICE_PLAN_NAME=$(app_service_plan_name)
+                export SUBSCRIPTION_ID=$(SUBSCRIPTION_ID)
+                export CLIENT_ID=$(CLIENT_ID)
+                export CLIENT_SECRET=$(CLIENT_SECRET)
+                export TENANT_ID=$(TENANT_ID)
+
+                # Debug the values of the variables
+                echo "Resource Group Name: $RESOURCE_GROUP_NAME"
+                echo "App Service Name: $APP_SERVICE_NAME"
+                echo "App Service Plan Name: $APP_SERVICE_PLAN_NAME"
+
+                # Run Terraform plan with explicit variables
                 terraform plan -out=tfplan \
-                  -var="resource_group_name=$(resource_group_name_dev)" \
-                  -var="environment=$(environment_dev)" \
-                  -var="app_service_name=$(app_service_name_dev)" \
-                  -var="app_service_plan_name=$(app_service_plan_name)" \
-                  -var="subscription_id=$(SUBSCRIPTION_ID)" \
-                  -var="client_id=$(CLIENT_ID)" \
-                  -var="client_secret=$(CLIENT_SECRET)" \
-                  -var="tenant_id=$(TENANT_ID)"
+                  -var="resource_group_name=$RESOURCE_GROUP_NAME" \
+                  -var="app_service_name=$APP_SERVICE_NAME" \
+                  -var="app_service_plan_name=$APP_SERVICE_PLAN_NAME" \
+                  -var="subscription_id=$SUBSCRIPTION_ID" \
+                  -var="client_id=$CLIENT_ID" \
+                  -var="client_secret=$CLIENT_SECRET" \
+                  -var="tenant_id=$TENANT_ID"
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -179,15 +184,6 @@ stages:
           - download: current
             artifact: drop
 
-          - script: |
-              echo "resource_group_name_staging: $(resource_group_name_staging)"
-              echo "app_service_name_staging: $(app_service_name_staging)"
-              echo "subscription_id: $(SUBSCRIPTION_ID)"
-              echo "client_id: $(CLIENT_ID)"
-              echo "client_secret: $(CLIENT_SECRET)"
-              echo "tenant_id: $(TENANT_ID)"
-            displayName: 'Debug Variables for Staging'
-
           - task: Bash@3
             displayName: 'Install Terraform'
             inputs:
@@ -223,15 +219,29 @@ stages:
               workingDirectory: '$(tfWorkingDir)'
               targetType: 'inline'
               script: |
+                # Export Staging-specific variables
+                export RESOURCE_GROUP_NAME=$(resource_group_name_staging)
+                export APP_SERVICE_NAME=$(app_service_name_staging)
+                export APP_SERVICE_PLAN_NAME=$(app_service_plan_name)
+                export SUBSCRIPTION_ID=$(SUBSCRIPTION_ID)
+                export CLIENT_ID=$(CLIENT_ID)
+                export CLIENT_SECRET=$(CLIENT_SECRET)
+                export TENANT_ID=$(TENANT_ID)
+
+                # Debug the values of the variables
+                echo "Resource Group Name: $RESOURCE_GROUP_NAME"
+                echo "App Service Name: $APP_SERVICE_NAME"
+                echo "App Service Plan Name: $APP_SERVICE_PLAN_NAME"
+
+                # Run Terraform plan with explicit variables
                 terraform plan -out=tfplan \
-                  -var="resource_group_name=$(resource_group_name_staging)" \
-                  -var="environment=$(environment_staging)" \
-                  -var="app_service_name=$(app_service_name_staging)" \
-                  -var="app_service_plan_name=$(app_service_plan_name)" \
-                  -var="subscription_id=$(SUBSCRIPTION_ID)" \
-                  -var="client_id=$(CLIENT_ID)" \
-                  -var="client_secret=$(CLIENT_SECRET)" \
-                  -var="tenant_id=$(TENANT_ID)"
+                  -var="resource_group_name=$RESOURCE_GROUP_NAME" \
+                  -var="app_service_name=$APP_SERVICE_NAME" \
+                  -var="app_service_plan_name=$APP_SERVICE_PLAN_NAME" \
+                  -var="subscription_id=$SUBSCRIPTION_ID" \
+                  -var="client_id=$CLIENT_ID" \
+                  -var="client_secret=$CLIENT_SECRET" \
+                  -var="tenant_id=$TENANT_ID"
             env:
               ARM_CLIENT_ID: $(CLIENT_ID)
               ARM_CLIENT_SECRET: $(CLIENT_SECRET)
@@ -265,3 +275,4 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+
