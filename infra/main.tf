@@ -15,16 +15,15 @@ provider "azurerm" {
   tenant_id       = var.tenant_id
 }
 
-# Use existing resource group if already created
+# Use existing resource group
 data "azurerm_resource_group" "rg" {
-  count = var.create_resource_group ? 0 : 1
-  name  = var.resource_group_name
+  name = var.resource_group_name
 }
 
 # Dynamically select resource group name and location
 locals {
-  rg_name     = var.create_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-  rg_location = var.create_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
+  rg_name     = data.azurerm_resource_group.rg.name
+  rg_location = data.azurerm_resource_group.rg.location
 }
 
 # Variables
@@ -66,3 +65,4 @@ variable "environment" {
 variable "app_service_name" {
   type = string
 }
+
