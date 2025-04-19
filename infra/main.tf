@@ -27,9 +27,27 @@ data "azurerm_service_plan" "existing_asp" {
   resource_group_name = var.resource_group_name
 }
 
-# Azure Linux Web App
-resource "azurerm_linux_web_app" "web_app" {
-  name                = var.app_service_name
+# Azure Linux Web App (Dev)
+resource "azurerm_linux_web_app" "dev_web_app" {
+  name                = var.app_service_name_dev  # Using dev-specific app name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  service_plan_id     = data.azurerm_service_plan.existing_asp.id
+
+  site_config {
+    application_stack {
+      python_version = "3.10"
+    }
+  }
+
+  app_settings = {
+    "WEBSITES_PORT" = "8000"
+  }
+}
+
+# Azure Linux Web App (Staging)
+resource "azurerm_linux_web_app" "staging_web_app" {
+  name                = var.app_service_name_staging  # Using staging-specific app name
   location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
   service_plan_id     = data.azurerm_service_plan.existing_asp.id
@@ -74,11 +92,15 @@ variable "app_service_plan_name" {
   type = string
 }
 
-variable "app_service_name" {
+variable "app_service_name_dev" {
   type = string
 }
 
-# Additional variables for Staging (if needed)
+variable "app_service_name_staging" {
+  type = string
+}
+
+# Additional variable for Staging (if needed)
 variable "environment" {
   type = string
 }
