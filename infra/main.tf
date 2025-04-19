@@ -50,8 +50,10 @@ resource "azurerm_linux_web_app" "web_app" {
   resource_group_name = local.rg_name
   service_plan_id     = azurerm_service_plan.app_service_plan.id
 
-  site_config {
-    linux_fx_version = "PYTHON|3.10"
+   site_config {
+    application_stack {
+      python_version = "3.10"
+    }
   }
 
   app_settings = {
