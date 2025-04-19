@@ -15,13 +15,6 @@ provider "azurerm" {
   tenant_id       = var.tenant_id
 }
 
-# Conditionally create resource group for dev or staging stage
-resource "azurerm_resource_group" "rg" {
-  count    = var.create_resource_group && (var.environment == "dev" || var.environment == "staging") ? 1 : 0
-  name     = var.resource_group_name
-  location = var.resource_group_location
-}
-
 # Use existing resource group if already created
 data "azurerm_resource_group" "rg" {
   count = var.create_resource_group ? 0 : 1
@@ -32,33 +25,6 @@ data "azurerm_resource_group" "rg" {
 locals {
   rg_name     = var.create_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
   rg_location = var.create_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
-}
-
-# App Service Plan
-resource "azurerm_service_plan" "app_service_plan" {
-  name                = "${var.environment}-asp"
-  location            = local.rg_location
-  resource_group_name = local.rg_name
-  os_type             = "Linux"
-  sku_name            = "S1"
-}
-
-# Azure Linux Web App
-resource "azurerm_linux_web_app" "web_app" {
-  name                = var.app_service_name
-  location            = local.rg_location
-  resource_group_name = local.rg_name
-  service_plan_id     = azurerm_service_plan.app_service_plan.id
-
-   site_config {
-    application_stack {
-      python_version = "3.10"
-    }
-  }
-
-  app_settings = {
-    "WEBSITES_PORT" = "8000"
-  }
 }
 
 # Variables
