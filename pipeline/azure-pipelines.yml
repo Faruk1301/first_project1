@@ -13,19 +13,21 @@ variables:
     value: 'infra'
   - name: terraformVersion
     value: '1.5.7'
-  
+
   - name: environment_dev
     value: 'dev'
   - name: environment_staging
     value: 'staging'
   - name: app_service_name_dev
-    value: 'demo-app-faruk-dev-001'
+    value: 'demo-app-faruk-dev-001'  # Dev app service name
   - name: app_service_name_staging
-    value: 'webapp-faruk-staging-001'
+    value: 'webapp-faruk-staging-001'  # Staging app service name
   - name: resource_group_name_dev
     value: 'my-resource-group-dev'
   - name: resource_group_name_staging
     value: 'my-resource-group-staging'
+  - name: app_service_plan_name
+    value: 'my-app-service-plan'  # App service plan name
 
 pool:
   vmImage: 'ubuntu-24.04'
@@ -117,7 +119,8 @@ stages:
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_dev)" \
                   -var="environment=$(environment_dev)" \
-                  -var="app_service_name=$(app_service_name_dev)" \
+                  -var="app_service_name=$(app_service_name_dev)" \  # Dev app service name
+                  -var="app_service_plan_name=$(app_service_plan_name)" \
                   -var="subscription_id=$(SUBSCRIPTION_ID)" \
                   -var="client_id=$(CLIENT_ID)" \
                   -var="client_secret=$(CLIENT_SECRET)" \
@@ -151,7 +154,7 @@ stages:
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: '$(app_service_name_dev)'
+              appName: '$(app_service_name_dev)'  # Dev app service name
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
@@ -205,7 +208,8 @@ stages:
                 terraform plan -out=tfplan \
                   -var="resource_group_name=$(resource_group_name_staging)" \
                   -var="environment=$(environment_staging)" \
-                  -var="app_service_name=$(app_service_name_staging)" \
+                  -var="app_service_name=$(app_service_name_staging)" \  # Staging app service name
+                  -var="app_service_plan_name=$(app_service_plan_name)" \
                   -var="subscription_id=$(SUBSCRIPTION_ID)" \
                   -var="client_id=$(CLIENT_ID)" \
                   -var="client_secret=$(CLIENT_SECRET)" \
@@ -239,15 +243,10 @@ stages:
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: '$(app_service_name_staging)'
+              appName: '$(app_service_name_staging)'  # Staging app service name
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
-
-
-
-
 
 
 
