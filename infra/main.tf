@@ -11,15 +11,15 @@ provider "azurerm" {
   features {}
 }
 
-# Get existing Resource Group (terraform-backend-rg)
+# Get existing Resource Group
 data "azurerm_resource_group" "rg" {
-  name = "terraform-backend-rg"  # Fixed to the specified resource group name
+  name = var.resource_group_name
 }
 
 # Get existing App Service Plan
 data "azurerm_service_plan" "existing_asp" {
   name                = var.app_service_plan_name
-  resource_group_name = data.azurerm_resource_group.rg.name  # Referencing the resource group dynamically
+  resource_group_name = var.resource_group_name
 }
 
 # Azure Linux Web App (Combined for Dev and Staging)
@@ -38,27 +38,28 @@ resource "azurerm_linux_web_app" "web_app" {
   app_settings = {
     "WEBSITES_PORT" = "8000"
   }
-
-  tags = {
-    "Environment" = var.environment
-  }
 }
 
 # ------------------------------------
 # Variables
 # ------------------------------------
 
-variable "app_service_plan_name" {
-  description = "The name of the Azure App Service Plan"
+variable "resource_group_name" {
   type        = string
+  description = "The name of the Azure resource group."
+}
+
+variable "app_service_plan_name" {
+  type        = string
+  description = "The name of the Azure App Service Plan."
 }
 
 variable "app_service_name" {
-  description = "The name of the Azure Web App"
   type        = string
+  description = "The name of the Azure Linux Web App."
 }
 
 variable "environment" {
-  description = "The environment in which the app is deployed (e.g., dev, staging, prod)"
   type        = string
+  description = "The environment (e.g., dev, staging)."
 }
