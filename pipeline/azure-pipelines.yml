@@ -13,21 +13,18 @@ variables:
     value: 'infra'
   - name: terraformVersion
     value: '1.5.7'
+  - name: location
+    value: 'East US'  # Match your Terraform location
 
-  # Dev
-  - name: environment_dev
-    value: 'dev'
-  - name: app_service_name_dev
+  # Environment configurations
+  - name: dev.app_service_name
     value: 'demo-app-faruk-dev-001'
-  - name: resource_group_name_dev
+  - name: dev.resource_group_name
     value: 'my-resource-group-dev'
-
-  # Staging
-  - name: environment_staging
-    value: 'staging'
-  - name: app_service_name_staging
+  
+  - name: staging.app_service_name
     value: 'webapp-faruk-staging-001'
-  - name: resource_group_name_staging
+  - name: staging.resource_group_name
     value: 'my-resource-group-staging'
 
   # Common
@@ -71,145 +68,154 @@ stages:
               targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
               artifact: 'drop'
 
-  - stage: Dev
-    displayName: 'Deploy to Dev'
+  - stage: TerraformDev
+    displayName: 'Terraform Dev'
     dependsOn: Build
     jobs:
-      - job: DeployDev
-        displayName: 'Terraform & App Deployment (Dev)'
+      - job: Terraform
+        displayName: 'Provision Dev Infrastructure'
         steps:
           - checkout: self
+
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: TerraformCLI@0
+            displayName: 'Terraform Init (Dev)'
+            inputs:
+              command: init
+              workingDirectory: $(tfWorkingDir)
+              backendType: azurerm
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: 'terraform-backend-rg'
+              backendAzureRmStorageAccountName: 'tfstatefaruk1234567'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'dev.terraform.tfstate'
+
+          - task: TerraformCLI@0
+            displayName: 'Select Workspace (Dev)'
+            inputs:
+              command: workspace
+              workingDirectory: $(tfWorkingDir)
+              arguments: 'select dev || new dev'
+
+          - task: TerraformCLI@0
+            displayName: 'Terraform Plan (Dev)'
+            inputs:
+              command: plan
+              workingDirectory: $(tfWorkingDir)
+              commandOptions: '-out=tfplan'
+              environmentServiceName: $(azureServiceConnection)
+              environmentVariables: |
+                TF_VAR_resource_group_name=$(dev.resource_group_name)
+                TF_VAR_app_service_name=$(dev.app_service_name)
+                TF_VAR_app_service_plan_name=$(app_service_plan_name)
+                TF_VAR_location=$(location)
+
+          - task: TerraformCLI@0
+            displayName: 'Terraform Apply (Dev)'
+            inputs:
+              command: apply
+              workingDirectory: $(tfWorkingDir)
+              commandOptions: 'tfplan'
+              environmentServiceName: $(azureServiceConnection)
+
+  - stage: DeployDev
+    displayName: 'Deploy to Dev'
+    dependsOn: TerraformDev
+    jobs:
+      - job: Deploy
+        displayName: 'Deploy App to Dev'
+        steps:
           - download: current
             artifact: drop
-
-          - script: |
-              sudo apt-get update
-              sudo apt-get install -y wget unzip
-              wget https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
-              unzip terraform_$(terraformVersion)_linux_amd64.zip
-              sudo mv terraform /usr/local/bin/
-              terraform -version
-            displayName: 'Install Terraform'
-
-          - script: |
-              terraform init -input=false -reconfigure \
-                -backend-config="resource_group_name=terraform-backend-rg" \
-                -backend-config="storage_account_name=tfstatefaruk1234567" \
-                -backend-config="container_name=tfstate" \
-                -backend-config="key=$(environment_dev).terraform.tfstate" \
-                -backend-config="backend-config=infra/backend-dev.tfvars"
-            workingDirectory: '$(tfWorkingDir)'
-            displayName: 'Terraform Init (Dev)'
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
-
-          - script: |
-              export TF_VAR_resource_group_name=$(resource_group_name_dev)
-              export TF_VAR_environment=$(environment_dev)
-              export TF_VAR_app_service_name=$(app_service_name_dev)
-              export TF_VAR_app_service_plan_name=$(app_service_plan_name)
-
-              terraform plan -out=tfplan
-            workingDirectory: '$(tfWorkingDir)'
-            displayName: 'Terraform Plan (Dev)'
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
-
-          - script: |
-              terraform apply -auto-approve tfplan
-            workingDirectory: '$(tfWorkingDir)'
-            displayName: 'Terraform Apply (Dev)'
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Web App (Dev)'
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: '$(app_service_name_dev)'
+              appName: '$(dev.app_service_name)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
-              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
-  - stage: Staging
-    displayName: 'Deploy to Staging'
-    dependsOn: Dev
+  - stage: TerraformStaging
+    displayName: 'Terraform Staging'
+    dependsOn: DeployDev
     condition: succeeded()
     jobs:
-      - job: DeployStaging
-        displayName: 'Terraform & App Deployment (Staging)'
+      - job: Terraform
+        displayName: 'Provision Staging Infrastructure'
         steps:
           - checkout: self
+
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: TerraformCLI@0
+            displayName: 'Terraform Init (Staging)'
+            inputs:
+              command: init
+              workingDirectory: $(tfWorkingDir)
+              backendType: azurerm
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: 'terraform-backend-rg'
+              backendAzureRmStorageAccountName: 'tfstatefaruk1234567'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'staging.terraform.tfstate'
+
+          - task: TerraformCLI@0
+            displayName: 'Select Workspace (Staging)'
+            inputs:
+              command: workspace
+              workingDirectory: $(tfWorkingDir)
+              arguments: 'select staging || new staging'
+
+          - task: TerraformCLI@0
+            displayName: 'Terraform Plan (Staging)'
+            inputs:
+              command: plan
+              workingDirectory: $(tfWorkingDir)
+              commandOptions: '-out=tfplan'
+              environmentServiceName: $(azureServiceConnection)
+              environmentVariables: |
+                TF_VAR_resource_group_name=$(staging.resource_group_name)
+                TF_VAR_app_service_name=$(staging.app_service_name)
+                TF_VAR_app_service_plan_name=$(app_service_plan_name)
+                TF_VAR_location=$(location)
+
+          - task: TerraformCLI@0
+            displayName: 'Terraform Apply (Staging)'
+            inputs:
+              command: apply
+              workingDirectory: $(tfWorkingDir)
+              commandOptions: 'tfplan'
+              environmentServiceName: $(azureServiceConnection)
+
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging'
+    dependsOn: TerraformStaging
+    condition: succeeded()
+    jobs:
+      - job: Deploy
+        displayName: 'Deploy App to Staging'
+        steps:
           - download: current
             artifact: drop
-
-          - script: |
-              sudo apt-get update
-              sudo apt-get install -y wget unzip
-              wget https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
-              unzip terraform_$(terraformVersion)_linux_amd64.zip
-              sudo mv terraform /usr/local/bin/
-              terraform -version
-            displayName: 'Install Terraform'
-
-          - script: |
-              terraform init -input=false -reconfigure \
-                -backend-config="resource_group_name=terraform-backend-rg" \
-                -backend-config="storage_account_name=tfstatefaruk1234567" \
-                -backend-config="container_name=tfstate" \
-                -backend-config="key=$(environment_staging).terraform.tfstate" \
-                -backend-config="backend-config=infra/backend-staging.tfvars"
-            workingDirectory: '$(tfWorkingDir)'
-            displayName: 'Terraform Init (Staging)'
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
-
-          - script: |
-              export TF_VAR_resource_group_name=$(resource_group_name_staging)
-              export TF_VAR_environment=$(environment_staging)
-              export TF_VAR_app_service_name=$(app_service_name_staging)
-              export TF_VAR_app_service_plan_name=$(app_service_plan_name)
-
-              terraform plan -out=tfplan
-            workingDirectory: '$(tfWorkingDir)'
-            displayName: 'Terraform Plan (Staging)'
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
-
-          - script: |
-              terraform apply -auto-approve tfplan
-            workingDirectory: '$(tfWorkingDir)'
-            displayName: 'Terraform Apply (Staging)'
-            env:
-              ARM_CLIENT_ID: $(CLIENT_ID)
-              ARM_CLIENT_SECRET: $(CLIENT_SECRET)
-              ARM_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-              ARM_TENANT_ID: $(TENANT_ID)
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Web App (Staging)'
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
-              appName: '$(app_service_name_staging)'
+              appName: '$(staging.app_service_name)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
-              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
 
