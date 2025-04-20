@@ -1,3 +1,4 @@
+
 terraform {
   required_providers {
     azurerm = {
@@ -34,22 +35,13 @@ data "azurerm_resource_group" "rg" {
   name = local.current_config.resource_group_name
 }
 
-# Import existing App Service Plan for Dev or Staging based on workspace
+# Create or reference App Service Plan
 resource "azurerm_service_plan" "app_service_plan" {
   name                = local.current_config.app_service_plan_name
   location            = local.current_config.location
   resource_group_name = data.azurerm_resource_group.rg.name
   os_type             = "Linux"
   sku_name            = "B1"
-}
-
-# Import existing App Service Plan for Dev or Staging workspace
-resource "azurerm_service_plan" "imported_app_service_plan" {
-  lifecycle {
-    ignore_changes = [
-      # This avoids Terraform from managing this imported resource
-    ]
-  }
 }
 
 # Create Azure Linux Web App
@@ -68,4 +60,4 @@ resource "azurerm_linux_web_app" "web_app" {
   app_settings = {
     "WEBSITES_PORT" = "8000"
   }
-}
+} 
