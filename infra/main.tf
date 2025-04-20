@@ -18,12 +18,13 @@ data "azurerm_resource_group" "rg" {
 
 # Create App Service Plan
 resource "azurerm_service_plan" "app_service_plan" {
-  name                = var.app_service_plan_name
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  name                = "my-app-service-plan"
+  location            = "East US"  # Replace with your actual location
+  resource_group_name = "my-resource-group-dev"
   os_type             = "Linux"
   sku_name            = "B1"
 }
+
 
 # Create Azure Linux Web App
 resource "azurerm_linux_web_app" "web_app" {
