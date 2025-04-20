@@ -11,24 +11,41 @@ provider "azurerm" {
   features {}
 }
 
-# Retrieve existing Resource Group
-data "azurerm_resource_group" "rg" {
-  name = var.resource_group_name
+# Define environment-specific variables using a map
+locals {
+  environment_config = {
+    dev = {
+      resource_group_name   = "my-resource-group-dev"
+      app_service_plan_name = "my-app-service-plan-dev"
+      location              = "East US"
+    }
+    staging = {
+      resource_group_name   = "my-resource-group-staging"
+      app_service_plan_name = "my-app-service-plan-staging"
+      location              = "East US"
+    }
+  }
+
+  current_config = lookup(local.environment_config, terraform.workspace, local.environment_config["dev"])
 }
 
-# Create App Service Plan
+# Retrieve existing Resource Group
+data "azurerm_resource_group" "rg" {
+  name = local.current_config.resource_group_name
+}
+
+# Create or reference App Service Plan
 resource "azurerm_service_plan" "app_service_plan" {
-  name                = "my-app-service-plan"
-  location            = "East US"  # Replace with your actual location
-  resource_group_name = "my-resource-group-dev"
+  name                = local.current_config.app_service_plan_name
+  location            = local.current_config.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   os_type             = "Linux"
   sku_name            = "B1"
 }
 
-
 # Create Azure Linux Web App
 resource "azurerm_linux_web_app" "web_app" {
-  name                = var.app_service_name
+  name                = "${terraform.workspace}-webapp"
   location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
   service_plan_id     = azurerm_service_plan.app_service_plan.id
@@ -44,27 +61,4 @@ resource "azurerm_linux_web_app" "web_app" {
   }
 }
 
-# ------------------------------------
-# Variables
-# ------------------------------------
-
-variable "resource_group_name" {
-  type        = string
-  description = "The name of the Azure resource group."
-}
-
-variable "app_service_plan_name" {
-  type        = string
-  description = "The name of the Azure App Service Plan."
-}
-
-variable "app_service_name" {
-  type        = string
-  description = "The name of the Azure Linux Web App."
-}
-
-variable "environment" {
-  type        = string
-  description = "The environment (e.g., dev, staging)."
-}
 
