@@ -96,7 +96,8 @@ stages:
                 -backend-config="resource_group_name=terraform-backend-rg" \
                 -backend-config="storage_account_name=tfstatefaruk1234567" \
                 -backend-config="container_name=tfstate" \
-                -backend-config="key=$(environment_dev).terraform.tfstate"
+                -backend-config="key=$(environment_dev).terraform.tfstate" \
+                -backend-config="backend-config=infra/backend-dev.tfvars"
             workingDirectory: '$(tfWorkingDir)'
             displayName: 'Terraform Init (Dev)'
             env:
@@ -166,7 +167,8 @@ stages:
                 -backend-config="resource_group_name=terraform-backend-rg" \
                 -backend-config="storage_account_name=tfstatefaruk1234567" \
                 -backend-config="container_name=tfstate" \
-                -backend-config="key=$(environment_staging).terraform.tfstate"
+                -backend-config="key=$(environment_staging).terraform.tfstate" \
+                -backend-config="backend-config=infra/backend-staging.tfvars"
             workingDirectory: '$(tfWorkingDir)'
             displayName: 'Terraform Init (Staging)'
             env:
@@ -209,4 +211,5 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
+
 
