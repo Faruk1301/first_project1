@@ -68,47 +68,9 @@ stages:
               targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
               artifact: 'drop'
 
-  - stage: TerraformDev
-    displayName: 'Terraform Dev'
-    dependsOn: Build
-    jobs:
-      - job: Terraform
-        displayName: 'Provision Dev Infrastructure'
-        steps:
-          - checkout: self
-
-          - task: AzureCLI@2
-            displayName: 'Terraform Init, Plan, and Apply (Dev)'
-            inputs:
-              azureSubscription: 'terraform-sc'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                set -e
-                curl -sLo terraform.zip https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
-                unzip terraform.zip
-                sudo mv terraform /usr/local/bin/
-                terraform -version
-                cd $(tfWorkingDir)
-                export ARM_CLIENT_ID=$(CLIENT_ID)
-                export ARM_CLIENT_SECRET=$(CLIENT_SECRET)
-                export ARM_SUBSCRIPTION_ID=$(SUBSCRIPTION_ID)
-                export ARM_TENANT_ID=$(TENANT_ID)
-                terraform init -backend-config="resource_group_name=terraform-backend-rg" \
-                               -backend-config="storage_account_name=tfstatefaruk1234567" \
-                               -backend-config="container_name=tfstate" \
-                               -backend-config="key=dev.terraform.tfstate"
-                terraform workspace select dev || terraform workspace new dev
-                terraform plan -out=tfplan \
-                  -var="resource_group_name=$(dev.resource_group_name)" \
-                  -var="app_service_name=$(dev.app_service_name)" \
-                  -var="app_service_plan_name=$(app_service_plan_name)" \
-                  -var="location=$(location)"
-                terraform apply tfplan
-
   - stage: DeployDev
     displayName: 'Deploy to Dev'
-    dependsOn: TerraformDev
+    dependsOn: Build
     jobs:
       - job: Deploy
         displayName: 'Deploy App to Dev'
@@ -126,48 +88,9 @@ stages:
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
-  - stage: TerraformStaging
-    displayName: 'Terraform Staging'
-    dependsOn: DeployDev
-    condition: succeeded()
-    jobs:
-      - job: Terraform
-        displayName: 'Provision Staging Infrastructure'
-        steps:
-          - checkout: self
-
-          - task: AzureCLI@2
-            displayName: 'Terraform Init, Plan, and Apply (Staging)'
-            inputs:
-              azureSubscription: 'terraform-sc'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                set -e
-                curl -sLo terraform.zip https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
-                unzip terraform.zip
-                sudo mv terraform /usr/local/bin/
-                terraform -version
-                cd $(tfWorkingDir)
-                export ARM_CLIENT_ID=$(CLIENT_ID)
-                export ARM_CLIENT_SECRET=$(CLIENT_SECRET)
-                export ARM_SUBSCRIPTION_ID=$(SUBSCRIPTION_ID)
-                export ARM_TENANT_ID=$(TENANT_ID)
-                terraform init -backend-config="resource_group_name=terraform-backend-rg" \
-                               -backend-config="storage_account_name=tfstatefaruk1234567" \
-                               -backend-config="container_name=tfstate" \
-                               -backend-config="key=staging.terraform.tfstate"
-                terraform workspace select staging || terraform workspace new staging
-                terraform plan -out=tfplan \
-                  -var="resource_group_name=$(staging.resource_group_name)" \
-                  -var="app_service_name=$(staging.app_service_name)" \
-                  -var="app_service_plan_name=$(app_service_plan_name)" \
-                  -var="location=$(location)"
-                terraform apply tfplan
-
   - stage: DeployStaging
     displayName: 'Deploy to Staging'
-    dependsOn: TerraformStaging
+    dependsOn: DeployDev
     condition: succeeded()
     jobs:
       - job: Deploy
@@ -185,5 +108,6 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+
 
 
