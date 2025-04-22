@@ -72,13 +72,35 @@ stages:
     displayName: 'Deploy to Dev'
     dependsOn: Build
     jobs:
-      - job: Deploy
+      - job: TerraformProvision
+        displayName: 'Provision Infrastructure with Terraform'
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
+
+          - script: |
+              cd $(tfWorkingDir)
+              terraform init
+              terraform apply -auto-approve
+            displayName: 'Terraform Init and Apply'
+
+      - job: DeployApp
         displayName: 'Deploy App to Dev'
+        dependsOn: TerraformProvision
         steps:
           - download: current
             artifact: drop
 
-          - script: sleep 300
+          - task: Delay@1
+            inputs:
+              delayForMinutes: '5'
             displayName: 'Wait for App Service provisioning'
 
           - task: AzureWebApp@1
@@ -90,7 +112,6 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-            retryCountOnTaskFailure: 3
 
   - stage: DeployStaging
     displayName: 'Deploy to Staging'
@@ -112,6 +133,4 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-            retryCountOnTaskFailure: 3
-
 
