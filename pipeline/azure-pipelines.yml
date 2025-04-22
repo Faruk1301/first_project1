@@ -21,7 +21,7 @@ variables:
     value: 'demo-app-faruk-dev-001'
   - name: dev.resource_group_name
     value: 'my-resource-group-dev'
-  
+
   - name: staging.app_service_name
     value: 'webapp-faruk-staging-001'
   - name: staging.resource_group_name
@@ -35,8 +35,53 @@ pool:
   vmImage: 'ubuntu-24.04'
 
 stages:
+  - stage: Terraform
+    displayName: 'Provision Infrastructure'
+    jobs:
+      - job: TerraformJob
+        displayName: 'Terraform Init and Apply'
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(tfWorkingDir)'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply'
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(tfWorkingDir)'
+              environmentServiceNameAzureRM: 'terraform-sc'
+              vars: |
+                location=$(location)
+                app_service_plan_name=$(app_service_plan_name)
+                dev_app_service_name=$(dev.app_service_name)
+                dev_resource_group_name=$(dev.resource_group_name)
+              ensureBackend: true
+              allowTelemetryCollection: false
+              runAzLogin: true
+              backendServiceArm: 'terraform-sc'
+              backendAzureRmResourceGroupName: 'terraform-backend-rg'
+              backendAzureRmStorageAccountName: 'terraformbackend'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'dev.terraform.tfstate'
+
   - stage: Build
     displayName: 'Build Stage'
+    dependsOn: Terraform
     jobs:
       - job: BuildJob
         displayName: 'Build and Package App'
@@ -72,16 +117,11 @@ stages:
     displayName: 'Deploy to Dev'
     dependsOn: Build
     jobs:
-      - job: DeployApp
+      - job: Deploy
         displayName: 'Deploy App to Dev'
         steps:
           - download: current
             artifact: drop
-
-          - script: |
-              echo "Waiting for 5 minutes to allow App Service provisioning..."
-              sleep 300
-            displayName: 'Wait for App Service provisioning'
 
           - task: AzureWebApp@1
             displayName: 'Deploy to Web App (Dev)'
@@ -98,7 +138,7 @@ stages:
     dependsOn: DeployDev
     condition: succeeded()
     jobs:
-      - job: DeployApp
+      - job: Deploy
         displayName: 'Deploy App to Staging'
         steps:
           - download: current
@@ -113,4 +153,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
