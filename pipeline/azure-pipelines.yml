@@ -72,35 +72,15 @@ stages:
     displayName: 'Deploy to Dev'
     dependsOn: Build
     jobs:
-      - job: TerraformProvision
-        displayName: 'Provision Infrastructure with Terraform'
-        steps:
-          - checkout: self
-
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '$(pythonVersion)'
-
-          - task: TerraformInstaller@0
-            inputs:
-              terraformVersion: '$(terraformVersion)'
-
-          - script: |
-              cd $(tfWorkingDir)
-              terraform init
-              terraform apply -auto-approve
-            displayName: 'Terraform Init and Apply'
-
       - job: DeployApp
         displayName: 'Deploy App to Dev'
-        dependsOn: TerraformProvision
         steps:
           - download: current
             artifact: drop
 
-          - task: Delay@1
-            inputs:
-              delayForMinutes: '5'
+          - script: |
+              echo "Waiting for 5 minutes to allow App Service provisioning..."
+              sleep 300
             displayName: 'Wait for App Service provisioning'
 
           - task: AzureWebApp@1
@@ -118,7 +98,7 @@ stages:
     dependsOn: DeployDev
     condition: succeeded()
     jobs:
-      - job: Deploy
+      - job: DeployApp
         displayName: 'Deploy App to Staging'
         steps:
           - download: current
