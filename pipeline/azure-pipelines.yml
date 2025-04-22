@@ -34,50 +34,7 @@ variables:
 pool:
   vmImage: 'ubuntu-24.04'
 
-stages:
-  - stage: Terraform
-    displayName: 'Provision Infrastructure'
-    jobs:
-      - job: TerraformJob
-        displayName: 'Terraform Init and Apply'
-        steps:
-          - checkout: self
 
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '$(pythonVersion)'
-
-          - task: TerraformInstaller@0
-            inputs:
-              terraformVersion: '$(terraformVersion)'
-
-          - task: TerraformTaskV4@4
-            displayName: 'Terraform Init'
-            inputs:
-              provider: 'azurerm'
-              command: 'init'
-              workingDirectory: '$(tfWorkingDir)'
-
-          - task: TerraformTaskV4@4
-            displayName: 'Terraform Apply'
-            inputs:
-              provider: 'azurerm'
-              command: 'apply'
-              workingDirectory: '$(tfWorkingDir)'
-              environmentServiceNameAzureRM: 'terraform-sc'
-              vars: |
-                location=$(location)
-                app_service_plan_name=$(app_service_plan_name)
-                dev_app_service_name=$(dev.app_service_name)
-                dev_resource_group_name=$(dev.resource_group_name)
-              ensureBackend: true
-              allowTelemetryCollection: false
-              runAzLogin: true
-              backendServiceArm: 'terraform-sc'
-              backendAzureRmResourceGroupName: 'terraform-backend-rg'
-              backendAzureRmStorageAccountName: 'terraformbackend'
-              backendAzureRmContainerName: 'tfstate'
-              backendAzureRmKey: 'dev.terraform.tfstate'
 
   - stage: Build
     displayName: 'Build Stage'
