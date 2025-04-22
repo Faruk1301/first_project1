@@ -34,11 +34,9 @@ variables:
 pool:
   vmImage: 'ubuntu-24.04'
 
-
-
+stages:
   - stage: Build
     displayName: 'Build Stage'
-    dependsOn: Terraform
     jobs:
       - job: BuildJob
         displayName: 'Build and Package App'
@@ -110,3 +108,4 @@ pool:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+
