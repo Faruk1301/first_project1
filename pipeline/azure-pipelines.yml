@@ -15,19 +15,14 @@ variables:
     value: '1.5.7'
   - name: location
     value: 'East US'
-
-  # Environment configurations
   - name: dev.app_service_name
     value: 'demo-app-faruk-dev-001'
   - name: dev.resource_group_name
     value: 'my-resource-group-dev'
-
   - name: staging.app_service_name
     value: 'webapp-faruk-staging-001'
   - name: staging.resource_group_name
     value: 'my-resource-group-staging'
-
-  # Common
   - name: app_service_plan_name
     value: 'my-app-service-plan'
 
@@ -69,11 +64,29 @@ stages:
               artifact: 'drop'
 
   - stage: DeployDev
-    displayName: 'Deploy to Dev'
+    displayName: 'Terraform Deploy Infra + App to Dev'
     dependsOn: Build
     jobs:
-      - job: Deploy
-        displayName: 'Deploy App to Dev'
+      - job: DeployInfraDev
+        displayName: 'Deploy Infra (Dev)'
+        steps:
+          - checkout: self
+
+          - task: UseTerraformVersion@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
+
+          - script: |
+              cd $(tfWorkingDir)
+              terraform init
+              terraform workspace new dev || terraform workspace select dev
+              terraform plan -out=tfplan
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform Init/Plan/Apply (Dev)'
+
+      - job: DeployAppDev
+        displayName: 'Deploy App to Web App (Dev)'
+        dependsOn: DeployInfraDev
         steps:
           - download: current
             artifact: drop
@@ -89,12 +102,30 @@ stages:
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
   - stage: DeployStaging
-    displayName: 'Deploy to Staging'
+    displayName: 'Terraform Deploy Infra + App to Staging'
     dependsOn: DeployDev
     condition: succeeded()
     jobs:
-      - job: Deploy
-        displayName: 'Deploy App to Staging'
+      - job: DeployInfraStaging
+        displayName: 'Deploy Infra (Staging)'
+        steps:
+          - checkout: self
+
+          - task: UseTerraformVersion@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
+
+          - script: |
+              cd $(tfWorkingDir)
+              terraform init
+              terraform workspace new staging || terraform workspace select staging
+              terraform plan -out=tfplan
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform Init/Plan/Apply (Staging)'
+
+      - job: DeployAppStaging
+        displayName: 'Deploy App to Web App (Staging)'
+        dependsOn: DeployInfraStaging
         steps:
           - download: current
             artifact: drop
@@ -108,4 +139,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
