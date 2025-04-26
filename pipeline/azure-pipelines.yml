@@ -47,10 +47,10 @@ stages:
               python -m venv venv
               source venv/bin/activate
               pip install -r requirements.txt
-            displayName: 'Install Dependencies'
+            displayName: 'Install Python Dependencies'
 
           - task: ArchiveFiles@2
-            displayName: 'Archive Application'
+            displayName: 'Archive App Folder'
             inputs:
               rootFolderOrFile: 'app'
               archiveType: 'zip'
@@ -58,46 +58,51 @@ stages:
               replaceExistingArchive: true
 
           - task: PublishPipelineArtifact@1
-            displayName: 'Publish Artifact'
             inputs:
               targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
               artifact: 'drop'
 
-  - stage: DeployDev
-    displayName: 'Deploy to Dev'
+  - stage: DeployInfra
+    displayName: 'Deploy Infrastructure using Terraform'
     dependsOn: Build
     jobs:
-      - job: Deploy
-        displayName: 'Deploy App to Dev'
+      - job: TerraformJob
+        displayName: 'Terraform Deploy Infra'
         steps:
-          - download: current
-            artifact: drop
+          - checkout: self
 
           - task: TerraformInstaller@1
             inputs:
               terraformVersion: '$(terraformVersion)'
 
-          - task: TerraformCLI@0
+          - task: AzureCLI@2
             inputs:
-              provider: 'azurerm'
-              command: 'init'
+              azureSubscription: 'terraform-sc'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
               workingDirectory: '$(tfWorkingDir)'
+              inlineScript: |
+                echo "Terraform Init"
+                terraform init
 
-          - task: TerraformCLI@0
-            inputs:
-              provider: 'azurerm'
-              command: 'plan'
-              workingDirectory: '$(tfWorkingDir)'
+                echo "Terraform Plan"
+                terraform plan
 
-          - task: TerraformCLI@0
-            inputs:
-              provider: 'azurerm'
-              command: 'apply'
-              workingDirectory: '$(tfWorkingDir)'
-              args: '-auto-approve'
+                echo "Terraform Apply"
+                terraform apply -auto-approve
+            displayName: 'Run Terraform Steps'
+
+  - stage: DeployDev
+    displayName: 'Deploy to Dev WebApp'
+    dependsOn: DeployInfra
+    jobs:
+      - job: DeployDevJob
+        steps:
+          - download: current
+            artifact: drop
 
           - task: AzureWebApp@1
-            displayName: 'Deploy to Web App (Dev)'
+            displayName: 'Deploy App to Dev WebApp'
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
@@ -107,18 +112,17 @@ stages:
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
   - stage: DeployStaging
-    displayName: 'Deploy to Staging'
+    displayName: 'Deploy to Staging WebApp'
     dependsOn: DeployDev
     condition: succeeded()
     jobs:
-      - job: Deploy
-        displayName: 'Deploy App to Staging'
+      - job: DeployStagingJob
         steps:
           - download: current
             artifact: drop
 
           - task: AzureWebApp@1
-            displayName: 'Deploy to Web App (Staging)'
+            displayName: 'Deploy App to Staging WebApp'
             inputs:
               azureSubscription: 'terraform-sc'
               appType: 'webAppLinux'
@@ -126,15 +130,3 @@ stages:
               package: '$(Pipeline.Workspace)/drop/app.zip'
               runtimeStack: 'PYTHON|3.10'
               startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
-  - stage: Output
-    displayName: 'Output Web App URLs'
-    dependsOn: DeployStaging
-    jobs:
-      - job: OutputUrls
-        displayName: 'Output Dev and Staging Web App URLs'
-        steps:
-          - script: |
-              echo "Dev Web App URL: $(dev_web_app_url)"
-              echo "Staging Web App URL: $(staging_web_app_url)"
-            displayName: 'Display Web App URLs'
