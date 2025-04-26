@@ -1,82 +1,94 @@
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "terraform-backend-rg"
+    storage_account_name = "tfstatefaruk1234567"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
+  }
+}
+
 provider "azurerm" {
   features {}
 }
 
-# Remote Backend Configuration (Azure Storage Account for State File)
-terraform {
-  backend "azurerm" {
-    resource_group_name   = "terraform-backend-rg"
-    storage_account_name  = "tfstatefaruk1234567"
-    container_name        = "tfstate"
-    key                   = "terraform.tfstate"
-  }
+# Backend resources (for storing Terraform state)
+resource "azurerm_resource_group" "backend" {
+  name     = "terraform-backend-rg"
+  location = "East US"
 }
 
-# Define variables
-variable "location" {
-  default = "East US"
+resource "azurerm_storage_account" "backend" {
+  name                     = "tfstatefaruk1234567"
+  resource_group_name      = azurerm_resource_group.backend.name
+  location                 = azurerm_resource_group.backend.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 }
 
-variable "app_service_plan_name" {
-  default = "my-app-service-plan"
+resource "azurerm_storage_container" "tfstate" {
+  name                  = "tfstate"
+  storage_account_name  = azurerm_storage_account.backend.name
+  container_access_type = "private"
 }
 
-# Resource Group for Dev and Staging environments
-resource "azurerm_resource_group" "dev_rg" {
-  name     = "my-resource-group-dev"
-  location = var.location
-}
-
-resource "azurerm_resource_group" "staging_rg" {
-  name     = "my-resource-group-staging"
-  location = var.location
+# Application Resource Group
+resource "azurerm_resource_group" "app_rg" {
+  name     = "webapp-rg"
+  location = "East US"
 }
 
 # App Service Plan
-resource "azurerm_app_service_plan" "dev_plan" {
-  name                = var.app_service_plan_name
-  location            = var.location
-  resource_group_name = azurerm_resource_group.dev_rg.name
-  kind                = "Linux"
-  reserved            = true
+resource "azurerm_app_service_plan" "asp" {
+  name                = "webapp-asp"
+  location            = azurerm_resource_group.app_rg.location
+  resource_group_name = azurerm_resource_group.app_rg.name
+
   sku {
-    tier = "Basic"
-    size = "B1"
+    tier = "Standard"
+    size = "S1"
   }
 }
 
-resource "azurerm_app_service_plan" "staging_plan" {
-  name                = var.app_service_plan_name
-  location            = var.location
-  resource_group_name = azurerm_resource_group.staging_rg.name
-  kind                = "Linux"
-  reserved            = true
-  sku {
-    tier = "Basic"
-    size = "B1"
-  }
+# Random string for unique webapp names
+resource "random_string" "random" {
+  length  = 6
+  upper   = false
+  special = false
 }
 
 # Dev Web App
-resource "azurerm_web_app" "dev_web_app" {
-  name                = "my-dev-webapp"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.dev_rg.name
-  app_service_plan_id = azurerm_app_service_plan.dev_plan.id
+resource "azurerm_linux_web_app" "dev_app" {
+  name                = "dev-webapp-${random_string.random.id}"
+  location            = azurerm_resource_group.app_rg.location
+  resource_group_name = azurerm_resource_group.app_rg.name
+  service_plan_id     = azurerm_app_service_plan.asp.id
+
+  site_config {
+    application_stack {
+      python_version = "3.9"
+    }
+  }
 }
 
 # Staging Web App
-resource "azurerm_web_app" "staging_web_app" {
-  name                = "my-staging-webapp"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.staging_rg.name
-  app_service_plan_id = azurerm_app_service_plan.staging_plan.id
+resource "azurerm_linux_web_app" "staging_app" {
+  name                = "staging-webapp-${random_string.random.id}"
+  location            = azurerm_resource_group.app_rg.location
+  resource_group_name = azurerm_resource_group.app_rg.name
+  service_plan_id     = azurerm_app_service_plan.asp.id
+
+  site_config {
+    application_stack {
+      python_version = "3.9"
+    }
+  }
 }
 
-output "dev_web_app_url" {
-  value = azurerm_web_app.dev_web_app.default_site_hostname
+# Outputs
+output "dev_webapp_url" {
+  value = "https://${azurerm_linux_web_app.dev_app.default_hostname}"
 }
 
-output "staging_web_app_url" {
-  value = azurerm_web_app.staging_web_app.default_site_hostname
+output "staging_webapp_url" {
+  value = "https://${azurerm_linux_web_app.staging_app.default_hostname}"
 }
