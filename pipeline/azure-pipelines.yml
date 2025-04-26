@@ -1,7 +1,9 @@
 trigger:
-  branches:
+  paths:
     include:
-      - main
+      - app/*
+      - infra/*
+      - pipeline/azure-pipelines.yml
 
 variables:
   - group: terraform_credential
@@ -13,14 +15,14 @@ variables:
     value: '1.5.7'
   - name: location
     value: 'East US'
-
-  # Environment configurations
   - name: dev.app_service_name
-    value: 'my-dev-webapp'
+    value: 'demo-app-faruk-dev-001'
+  - name: dev.resource_group_name
+    value: 'my-resource-group-dev'
   - name: staging.app_service_name
-    value: 'my-staging-webapp'
-
-  # Common
+    value: 'webapp-faruk-staging-001'
+  - name: staging.resource_group_name
+    value: 'my-resource-group-staging'
   - name: app_service_plan_name
     value: 'my-app-service-plan'
 
@@ -28,56 +30,111 @@ pool:
   vmImage: 'ubuntu-24.04'
 
 stages:
-  - stage: TerraformInitPlanApply
-    displayName: 'Terraform Init, Plan, Apply'
+  - stage: Build
+    displayName: 'Build Stage'
     jobs:
-      - job: TerraformJob
-        displayName: 'Terraform Initialization and Apply'
+      - job: BuildJob
+        displayName: 'Build and Package App'
         steps:
           - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+
+          - script: |
+              cd app
+              python -m venv venv
+              source venv/bin/activate
+              pip install -r requirements.txt
+            displayName: 'Install Dependencies'
+
+          - task: ArchiveFiles@2
+            displayName: 'Archive Application'
+            inputs:
+              rootFolderOrFile: 'app'
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+              replaceExistingArchive: true
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Artifact'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
+              artifact: 'drop'
+
+  - stage: DeployDev
+    displayName: 'Deploy to Dev'
+    dependsOn: Build
+    jobs:
+      - job: Deploy
+        displayName: 'Deploy App to Dev'
+        steps:
+          - download: current
+            artifact: drop
 
           - task: TerraformInstaller@1
             inputs:
               terraformVersion: '$(terraformVersion)'
 
-          - task: TerraformTaskV4@4
+          - task: TerraformCLI@0
             inputs:
               provider: 'azurerm'
               command: 'init'
-              backendServiceArm: 'terraform-sc'
               workingDirectory: '$(tfWorkingDir)'
-              backendAzureRmResourceGroupName: 'terraform-backend-rg'
-              backendAzureRmStorageAccountName: 'tfstatefaruk1234567'
-              backendAzureRmContainerName: 'tfstate'
-              backendAzureRmKey: 'terraform.tfstate'
 
-          - task: TerraformTaskV4@4
+          - task: TerraformCLI@0
             inputs:
               provider: 'azurerm'
               command: 'plan'
               workingDirectory: '$(tfWorkingDir)'
-              backendServiceArm: 'terraform-sc'
-              environmentServiceNameAzureRM: 'terraform-sc'
-              vars: |
-                location = '$(location)'
 
-          - task: TerraformTaskV4@4
+          - task: TerraformCLI@0
             inputs:
               provider: 'azurerm'
               command: 'apply'
               workingDirectory: '$(tfWorkingDir)'
-              backendServiceArm: 'terraform-sc'
-              environmentServiceNameAzureRM: 'terraform-sc'
-              vars: |
-                location = '$(location)'
-              commandOptions: '-auto-approve'
+              args: '-auto-approve'
 
-          - task: AzureCLI@2
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Web App (Dev)'
             inputs:
               azureSubscription: 'terraform-sc'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                echo "Dev Web App URL: $(dev_web_app_url)"
-                echo "Staging Web App URL: $(staging_web_app_url)"
+              appType: 'webAppLinux'
+              appName: '$(dev.app_service_name)'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
+              runtimeStack: 'PYTHON|3.10'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging'
+    dependsOn: DeployDev
+    condition: succeeded()
+    jobs:
+      - job: Deploy
+        displayName: 'Deploy App to Staging'
+        steps:
+          - download: current
+            artifact: drop
+
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Web App (Staging)'
+            inputs:
+              azureSubscription: 'terraform-sc'
+              appType: 'webAppLinux'
+              appName: '$(staging.app_service_name)'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
+              runtimeStack: 'PYTHON|3.10'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+
+  - stage: Output
+    displayName: 'Output Web App URLs'
+    dependsOn: DeployStaging
+    jobs:
+      - job: OutputUrls
+        displayName: 'Output Dev and Staging Web App URLs'
+        steps:
+          - script: |
+              echo "Dev Web App URL: $(dev_web_app_url)"
+              echo "Staging Web App URL: $(staging_web_app_url)"
+            displayName: 'Display Web App URLs'
