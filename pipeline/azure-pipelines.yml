@@ -31,7 +31,7 @@ pool:
   vmImage: 'ubuntu-24.04'
 
 stages:
-# ----------- Build Stage -----------
+# ----------- Stage 1: Build Stage -----------
 - stage: Build
   displayName: 'Build Stage'
   jobs:
@@ -65,13 +65,13 @@ stages:
             targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
             artifact: 'drop'
 
-# ----------- Deploy Infra Dev Stage -----------
-- stage: DeployInfraDev
-  displayName: 'Deploy Infrastructure to Dev'
+# ----------- Stage 2: Deploy to Dev -----------
+- stage: DeployDev
+  displayName: 'Deploy to Dev'
   dependsOn: Build
   jobs:
-    - job: DeployInfra
-      displayName: 'Terraform Deploy Dev'
+    - job: DeployDevJob
+      displayName: 'Deploy Infrastructure and App to Dev'
       steps:
         - checkout: self
 
@@ -101,14 +101,6 @@ stages:
             environmentServiceNameAzureRM: 'terraform-sc'
             args: '-auto-approve'
 
-# ----------- Deploy App to Dev Stage -----------
-- stage: DeployAppDev
-  displayName: 'Deploy App to Dev'
-  dependsOn: DeployInfraDev
-  jobs:
-    - job: DeployApp
-      displayName: 'Deploy App Package Dev'
-      steps:
         - download: current
           artifact: drop
 
@@ -122,14 +114,14 @@ stages:
             runtimeStack: 'PYTHON|3.10'
             startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
-# ----------- Deploy Infra Staging Stage -----------
-- stage: DeployInfraStaging
-  displayName: 'Deploy Infrastructure to Staging'
-  dependsOn: DeployAppDev
+# ----------- Stage 3: Deploy to Staging -----------
+- stage: DeployStaging
+  displayName: 'Deploy to Staging'
+  dependsOn: DeployDev
   condition: succeeded()
   jobs:
-    - job: DeployInfra
-      displayName: 'Terraform Deploy Staging'
+    - job: DeployStagingJob
+      displayName: 'Deploy Infrastructure and App to Staging'
       steps:
         - checkout: self
 
@@ -159,15 +151,6 @@ stages:
             environmentServiceNameAzureRM: 'terraform-sc'
             args: '-auto-approve'
 
-# ----------- Deploy App to Staging Stage -----------
-- stage: DeployAppStaging
-  displayName: 'Deploy App to Staging'
-  dependsOn: DeployInfraStaging
-  condition: succeeded()
-  jobs:
-    - job: DeployApp
-      displayName: 'Deploy App Package Staging'
-      steps:
         - download: current
           artifact: drop
 
@@ -180,4 +163,5 @@ stages:
             package: '$(Pipeline.Workspace)/drop/app.zip'
             runtimeStack: 'PYTHON|3.10'
             startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+
 
