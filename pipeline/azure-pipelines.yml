@@ -1,11 +1,9 @@
 trigger:
-  branches:
-    include:
-      - main
   paths:
     include:
-      - infra/*
       - app/*
+      - infra/*
+      - pipeline/azure-pipelines.yml
 
 pool:
   vmImage: ubuntu-latest
