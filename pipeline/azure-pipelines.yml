@@ -106,7 +106,7 @@ stages:
 
         - script: |
             echo "Waiting for Web App provisioning to complete..."
-            sleep 60
+            sleep 180
           displayName: 'Wait for Azure Web App to be ready'
 
         - task: AzureWebApp@1
@@ -161,7 +161,7 @@ stages:
 
         - script: |
             echo "Waiting for Web App provisioning to complete..."
-            sleep 60
+            sleep 180
           displayName: 'Wait for Azure Web App to be ready'
 
         - task: AzureWebApp@1
