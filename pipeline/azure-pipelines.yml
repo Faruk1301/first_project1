@@ -1,132 +1,112 @@
 trigger:
+  branches:
+    include:
+      - main
   paths:
     include:
-      - app/*
       - infra/*
-      - pipeline/azure-pipelines.yml
-
-variables:
-  - group: terraform_credential
-  - name: pythonVersion
-    value: '3.10'
-  - name: tfWorkingDir
-    value: 'infra'
-  - name: terraformVersion
-    value: '1.5.7'
-  - name: location
-    value: 'East US'
-  - name: dev.app_service_name
-    value: 'demo-app-faruk-dev-001'
-  - name: dev.resource_group_name
-    value: 'my-resource-group-dev'
-  - name: staging.app_service_name
-    value: 'webapp-faruk-staging-001'
-  - name: staging.resource_group_name
-    value: 'my-resource-group-staging'
-  - name: app_service_plan_name
-    value: 'my-app-service-plan'
+      - app/*
 
 pool:
-  vmImage: 'ubuntu-24.04'
+  vmImage: ubuntu-latest
+
+variables:
+  backendResourceGroup: 'terraform-backend-rg'
+  backendStorageAccount: 'tfstatefaruk1234567'
+  backendContainer: 'tfstate'
+  backendKey: 'dev.terraform.tfstate'  # Initially set to dev, will change for staging
 
 stages:
-  - stage: Build
-    displayName: 'Build Stage'
-    jobs:
-      - job: BuildJob
-        displayName: 'Build and Package App'
-        steps:
-          - checkout: self
+- stage: Build
+  jobs:
+  - job: TerraformInstallation
+    displayName: "Install Terraform"
+    steps:
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: 'latest'
 
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '$(pythonVersion)'
+- stage: Dev
+  dependsOn: Build
+  jobs:
+  - job: DeployDev
+    displayName: "Deploy Development WebApp"
+    steps:
+    - task: TerraformCLI@0
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendType: 'azurerm'
+        backendServiceArm: 'terraform-sc'
+        backendAzureRmResourceGroupName: '$(backendResourceGroup)'
+        backendAzureRmStorageAccountName: '$(backendStorageAccount)'
+        backendAzureRmContainerName: '$(backendContainer)'
+        backendAzureRmKey: '$(backendKey)'   # Dev state file (dev.terraform.tfstate)
+        allowTelemetryCollection: false
+        additionalArgs: '-reconfigure'
+        workingDirectory: infra
 
-          - script: |
-              cd app
-              python -m venv venv
-              source venv/bin/activate
-              pip install -r requirements.txt
-            displayName: 'Install Python Dependencies'
+    - script: |
+        terraform workspace select dev || terraform workspace new dev
+      displayName: 'Select/Create Dev Workspace'
 
-          - task: ArchiveFiles@2
-            displayName: 'Archive App Folder'
-            inputs:
-              rootFolderOrFile: 'app'
-              archiveType: 'zip'
-              archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
-              replaceExistingArchive: true
+    - task: TerraformCLI@0
+      displayName: Terraform Plan (Dev)
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        environmentServiceName: 'terraform-sc'
+        workingDirectory: infra
 
-          - task: PublishPipelineArtifact@1
-            inputs:
-              targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
-              artifact: 'drop'
+    - task: TerraformCLI@0
+      displayName: Terraform Apply (Dev)
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        environmentServiceName: 'terraform-sc'
+        additionalArgs: '-auto-approve'
+        workingDirectory: infra
 
-  - stage: DeployInfra
-    displayName: 'Deploy Infrastructure using Terraform'
-    dependsOn: Build
-    jobs:
-      - job: TerraformJob
-        displayName: 'Terraform Deploy Infra'
-        steps:
-          - checkout: self
+- stage: Staging
+  dependsOn: Dev
+  jobs:
+  - job: DeployStaging
+    displayName: "Deploy Staging WebApp"
+    steps:
+    - task: TerraformCLI@0
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendType: 'azurerm'
+        backendServiceArm: 'terraform-sc'
+        backendAzureRmResourceGroupName: '$(backendResourceGroup)'
+        backendAzureRmStorageAccountName: '$(backendStorageAccount)'
+        backendAzureRmContainerName: '$(backendContainer)'
+        backendAzureRmKey: 'staging.terraform.tfstate'  # Staging state file (staging.terraform.tfstate)
+        allowTelemetryCollection: false
+        additionalArgs: '-reconfigure'
+        workingDirectory: infra
 
-          - task: TerraformInstaller@1
-            inputs:
-              terraformVersion: '$(terraformVersion)'
+    - script: |
+        terraform workspace select staging || terraform workspace new staging
+      displayName: 'Select/Create Staging Workspace'
 
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'terraform-sc'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              workingDirectory: '$(tfWorkingDir)'
-              inlineScript: |
-                echo "Terraform Init"
-                terraform init
+    - task: TerraformCLI@0
+      displayName: Terraform Plan (Staging)
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        environmentServiceName: 'terraform-sc'
+        workingDirectory: infra
 
-                echo "Terraform Plan"
-                terraform plan
-
-                echo "Terraform Apply"
-                terraform apply -auto-approve
-            displayName: 'Run Terraform Steps'
-
-  - stage: DeployDev
-    displayName: 'Deploy to Dev WebApp'
-    dependsOn: DeployInfra
-    jobs:
-      - job: DeployDevJob
-        steps:
-          - download: current
-            artifact: drop
-
-          - task: AzureWebApp@1
-            displayName: 'Deploy App to Dev WebApp'
-            inputs:
-              azureSubscription: 'terraform-sc'
-              appType: 'webAppLinux'
-              appName: '$(dev.app_service_name)'
-              package: '$(Pipeline.Workspace)/drop/app.zip'
-              runtimeStack: 'PYTHON|3.10'
-              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
-
-  - stage: DeployStaging
-    displayName: 'Deploy to Staging WebApp'
-    dependsOn: DeployDev
-    condition: succeeded()
-    jobs:
-      - job: DeployStagingJob
-        steps:
-          - download: current
-            artifact: drop
-
-          - task: AzureWebApp@1
-            displayName: 'Deploy App to Staging WebApp'
-            inputs:
-              azureSubscription: 'terraform-sc'
-              appType: 'webAppLinux'
-              appName: '$(staging.app_service_name)'
-              package: '$(Pipeline.Workspace)/drop/app.zip'
-              runtimeStack: 'PYTHON|3.10'
-              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+    - task: TerraformCLI@0
+      displayName: Terraform Apply (Staging)
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        environmentServiceName: 'terraform-sc'
+        additionalArgs: '-auto-approve'
+        workingDirectory: infra
