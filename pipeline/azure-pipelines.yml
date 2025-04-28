@@ -104,10 +104,29 @@ stages:
         - download: current
           artifact: drop
 
-        - script: |
-            echo "Waiting for Web App provisioning to complete..."
-            sleep 300
-          displayName: 'Wait for Azure Web App to be ready'
+        # Retry mechanism to check if Web App is available
+        - task: AzureCLI@2
+          displayName: 'Wait for Azure Web App (Dev) to be Ready'
+          inputs:
+            azureSubscription: 'terraform-sc'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              app_name="$(dev.app_service_name)"
+              resource_group="$(dev.resource_group_name)"
+              echo "Checking if Web App '$app_name' is available..."
+              retries=0
+              until az webapp show --name "$app_name" --resource-group "$resource_group" &> /dev/null
+              do
+                retries=$((retries+1))
+                if [ $retries -gt 10 ]; then
+                  echo "Web App '$app_name' not found after several retries. Exiting."
+                  exit 1
+                fi
+                echo "Web App not available yet. Retrying in 30 seconds..."
+                sleep 30
+              done
+              echo "Web App '$app_name' is ready!"
 
         - task: AzureWebApp@1
           displayName: 'Deploy to Web App (Dev)'
@@ -159,10 +178,29 @@ stages:
         - download: current
           artifact: drop
 
-        - script: |
-            echo "Waiting for Web App provisioning to complete..."
-            sleep 300
-          displayName: 'Wait for Azure Web App to be ready'
+        # Retry mechanism for Staging Web App
+        - task: AzureCLI@2
+          displayName: 'Wait for Azure Web App (Staging) to be Ready'
+          inputs:
+            azureSubscription: 'terraform-sc'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              app_name="$(staging.app_service_name)"
+              resource_group="$(staging.resource_group_name)"
+              echo "Checking if Web App '$app_name' is available..."
+              retries=0
+              until az webapp show --name "$app_name" --resource-group "$resource_group" &> /dev/null
+              do
+                retries=$((retries+1))
+                if [ $retries -gt 10 ]; then
+                  echo "Web App '$app_name' not found after several retries. Exiting."
+                  exit 1
+                fi
+                echo "Web App not available yet. Retrying in 30 seconds..."
+                sleep 30
+              done
+              echo "Web App '$app_name' is ready!"
 
         - task: AzureWebApp@1
           displayName: 'Deploy to Web App (Staging)'
