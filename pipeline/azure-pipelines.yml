@@ -104,6 +104,11 @@ stages:
         - download: current
           artifact: drop
 
+        - script: |
+            echo "Waiting for Web App provisioning to complete..."
+            sleep 60
+          displayName: 'Wait for Azure Web App to be ready'
+
         - task: AzureWebApp@1
           displayName: 'Deploy to Web App (Dev)'
           inputs:
@@ -153,6 +158,11 @@ stages:
 
         - download: current
           artifact: drop
+
+        - script: |
+            echo "Waiting for Web App provisioning to complete..."
+            sleep 60
+          displayName: 'Wait for Azure Web App to be ready'
 
         - task: AzureWebApp@1
           displayName: 'Deploy to Web App (Staging)'
