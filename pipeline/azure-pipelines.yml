@@ -5,93 +5,137 @@ trigger:
       - infra/*
       - pipeline/azure-pipelines.yml
 
-pool:
-  vmImage: ubuntu-latest
-
 variables:
-  backendResourceGroup: 'terraform-backend-rg'
-  backendStorageAccount: 'tfstatefaruk1234567'
-  backendContainer: 'tfstate'
-  backendKeyDev: 'dev.terraform.tfstate'
-  backendKeyStaging: 'staging.terraform.tfstate'
+  - group: terraform_credential
+  - name: pythonVersion
+    value: '3.10'
+  - name: tfWorkingDir
+    value: 'infra'
+  - name: terraformVersion
+    value: '1.5.7'
+  - name: location
+    value: 'East US'
+  - name: dev.app_service_name
+    value: 'demo-app-faruk-dev-001'
+  - name: dev.resource_group_name
+    value: 'my-resource-group-dev'
+  - name: staging.app_service_name
+    value: 'webapp-faruk-staging-001'
+  - name: staging.resource_group_name
+    value: 'my-resource-group-staging'
+  - name: app_service_plan_name
+    value: 'my-app-service-plan'
+
+pool:
+  vmImage: 'ubuntu-24.04'
 
 stages:
-- stage: Build
-  jobs:
-  - job: TerraformInstallation
-    displayName: "Install Terraform"
-    steps:
-    - task: TerraformInstaller@1
-      displayName: Install Terraform
-      inputs:
-        terraformVersion: 'latest'
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build and Package App'
+        steps:
+          - checkout: self
 
-- stage: Dev
-  dependsOn: Build
-  jobs:
-  - job: DeployDev
-    displayName: "Deploy Development WebApp"
-    steps:
-    - script: |
-        terraform init \
-          -backend-config="resource_group_name=$(backendResourceGroup)" \
-          -backend-config="storage_account_name=$(backendStorageAccount)" \
-          -backend-config="container_name=$(backendContainer)" \
-          -backend-config="key=$(backendKeyDev)" \
-          -reconfigure
-      displayName: 'Terraform Init (Dev)'
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
 
-    - script: |
-        terraform workspace select dev || terraform workspace new dev
-      displayName: 'Select/Create Dev Workspace'
+          - script: |
+              cd app
+              python -m venv venv
+              source venv/bin/activate
+              pip install -r requirements.txt
+            displayName: 'Install Dependencies'
 
-    - script: |
-        terraform plan -out=tfplan
-      displayName: 'Terraform Plan (Dev)'
+          - task: ArchiveFiles@2
+            displayName: 'Archive Application'
+            inputs:
+              rootFolderOrFile: 'app'
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+              replaceExistingArchive: true
 
-    - script: |
-        terraform apply -auto-approve tfplan
-      displayName: 'Terraform Apply (Dev)'
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Artifact'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
+              artifact: 'drop'
 
-    - script: |
-        echo "##vso[task.setvariable variable=webAppUrlDev]$(terraform output -raw web_app_url)"
-      displayName: 'Capture Dev WebApp URL'
+  - stage: DeployDev
+    displayName: 'Terraform Deploy Infra + App to Dev'
+    dependsOn: Build
+    jobs:
+      - job: DeployInfraDev
+        displayName: 'Deploy Infra (Dev)'
+        steps:
+          - checkout: self
 
-    - script: |
-        echo "Dev Web App URL: $(webAppUrlDev)"
-      displayName: 'Display Dev WebApp URL'
+          - task: UseTerraformVersion@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
 
-- stage: Staging
-  dependsOn: Dev
-  jobs:
-  - job: DeployStaging
-    displayName: "Deploy Staging WebApp"
-    steps:
-    - script: |
-        terraform init \
-          -backend-config="resource_group_name=$(backendResourceGroup)" \
-          -backend-config="storage_account_name=$(backendStorageAccount)" \
-          -backend-config="container_name=$(backendContainer)" \
-          -backend-config="key=$(backendKeyStaging)" \
-          -reconfigure
-      displayName: 'Terraform Init (Staging)'
+          - script: |
+              cd $(tfWorkingDir)
+              terraform init
+              terraform workspace new dev || terraform workspace select dev
+              terraform plan -out=tfplan
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform Init/Plan/Apply (Dev)'
 
-    - script: |
-        terraform workspace select staging || terraform workspace new staging
-      displayName: 'Select/Create Staging Workspace'
+      - job: DeployAppDev
+        displayName: 'Deploy App to Web App (Dev)'
+        dependsOn: DeployInfraDev
+        steps:
+          - download: current
+            artifact: drop
 
-    - script: |
-        terraform plan -out=tfplan
-      displayName: 'Terraform Plan (Staging)'
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Web App (Dev)'
+            inputs:
+              azureSubscription: 'terraform-sc'
+              appType: 'webAppLinux'
+              appName: '$(dev.app_service_name)'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
+              runtimeStack: 'PYTHON|3.10'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
 
-    - script: |
-        terraform apply -auto-approve tfplan
-      displayName: 'Terraform Apply (Staging)'
+  - stage: DeployStaging
+    displayName: 'Terraform Deploy Infra + App to Staging'
+    dependsOn: DeployDev
+    condition: succeeded()
+    jobs:
+      - job: DeployInfraStaging
+        displayName: 'Deploy Infra (Staging)'
+        steps:
+          - checkout: self
 
-    - script: |
-        echo "##vso[task.setvariable variable=webAppUrlStaging]$(terraform output -raw web_app_url)"
-      displayName: 'Capture Staging WebApp URL'
+          - task: UseTerraformVersion@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
 
-    - script: |
-        echo "Staging Web App URL: $(webAppUrlStaging)"
-      displayName: 'Display Staging WebApp URL'
+          - script: |
+              cd $(tfWorkingDir)
+              terraform init
+              terraform workspace new staging || terraform workspace select staging
+              terraform plan -out=tfplan
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform Init/Plan/Apply (Staging)'
+
+      - job: DeployAppStaging
+        displayName: 'Deploy App to Web App (Staging)'
+        dependsOn: DeployInfraStaging
+        steps:
+          - download: current
+            artifact: drop
+
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Web App (Staging)'
+            inputs:
+              azureSubscription: 'terraform-sc'
+              appType: 'webAppLinux'
+              appName: '$(staging.app_service_name)'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
+              runtimeStack: 'PYTHON|3.10'
+              startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
