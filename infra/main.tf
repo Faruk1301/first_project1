@@ -54,16 +54,22 @@ variable "staging_app_service_name" {
   default = "webapp-faruk-staging-001"
 }
 
-# Select names depending on workspace
-locals {
-  resource_group_name = terraform.workspace == "dev" ? var.dev_resource_group_name : var.staging_resource_group_name
-  app_service_name    = terraform.workspace == "dev" ? var.dev_app_service_name : var.staging_app_service_name
+# Create Resource Group for Dev
+resource "azurerm_resource_group" "dev" {
+  name     = var.dev_resource_group_name
+  location = var.location
 }
 
-# Create Resource Group
-resource "azurerm_resource_group" "rg" {
-  name     = local.resource_group_name
+# Create Resource Group for Staging
+resource "azurerm_resource_group" "staging" {
+  name     = var.staging_resource_group_name
   location = var.location
+}
+
+# Select names depending on workspace
+locals {
+  resource_group_name = terraform.workspace == "dev" ? azurerm_resource_group.dev.name : azurerm_resource_group.staging.name
+  app_service_name    = terraform.workspace == "dev" ? var.dev_app_service_name : var.staging_app_service_name
 }
 
 # Create App Service Plan
