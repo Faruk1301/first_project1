@@ -31,7 +31,7 @@ stages:
   - job: DeployDev
     displayName: "Deploy Development WebApp"
     steps:
-    - task: TerraformCLI@1   # Updated version
+    - task: TerraformCLI@2   # Use version 2 if version 1 still causes issues
       displayName: Terraform Init
       inputs:
         provider: 'azurerm'
@@ -50,7 +50,7 @@ stages:
         terraform workspace select dev || terraform workspace new dev
       displayName: 'Select/Create Dev Workspace'
 
-    - task: TerraformCLI@1   # Updated version
+    - task: TerraformCLI@2   # Updated to version 2
       displayName: Terraform Plan (Dev)
       inputs:
         provider: 'azurerm'
@@ -58,7 +58,7 @@ stages:
         environmentServiceName: 'terraform-sc'
         workingDirectory: infra
 
-    - task: TerraformCLI@1   # Updated version
+    - task: TerraformCLI@2   # Updated to version 2
       displayName: Terraform Apply (Dev)
       inputs:
         provider: 'azurerm'
@@ -83,7 +83,7 @@ stages:
   - job: DeployStaging
     displayName: "Deploy Staging WebApp"
     steps:
-    - task: TerraformCLI@1   # Updated version
+    - task: TerraformCLI@2   # Use version 2
       displayName: Terraform Init
       inputs:
         provider: 'azurerm'
@@ -102,7 +102,7 @@ stages:
         terraform workspace select staging || terraform workspace new staging
       displayName: 'Select/Create Staging Workspace'
 
-    - task: TerraformCLI@1   # Updated version
+    - task: TerraformCLI@2   # Use version 2
       displayName: Terraform Plan (Staging)
       inputs:
         provider: 'azurerm'
@@ -110,7 +110,7 @@ stages:
         environmentServiceName: 'terraform-sc'
         workingDirectory: infra
 
-    - task: TerraformCLI@1   # Updated version
+    - task: TerraformCLI@2   # Use version 2
       displayName: Terraform Apply (Staging)
       inputs:
         provider: 'azurerm'
