@@ -12,7 +12,8 @@ variables:
   backendResourceGroup: 'terraform-backend-rg'
   backendStorageAccount: 'tfstatefaruk1234567'
   backendContainer: 'tfstate'
-  backendKey: 'dev.terraform.tfstate'  # Initially set to dev, will change for staging
+  backendKeyDev: 'dev.terraform.tfstate'
+  backendKeyStaging: 'staging.terraform.tfstate'
 
 stages:
 - stage: Build
@@ -31,51 +32,34 @@ stages:
   - job: DeployDev
     displayName: "Deploy Development WebApp"
     steps:
-    - task: TerraformCLI@2   # Use version 2 if version 1 still causes issues
-      displayName: Terraform Init
-      inputs:
-        provider: 'azurerm'
-        command: 'init'
-        backendType: 'azurerm'
-        backendServiceArm: 'terraform-sc'
-        backendAzureRmResourceGroupName: '$(backendResourceGroup)'
-        backendAzureRmStorageAccountName: '$(backendStorageAccount)'
-        backendAzureRmContainerName: '$(backendContainer)'
-        backendAzureRmKey: '$(backendKey)'   # Dev state file (dev.terraform.tfstate)
-        allowTelemetryCollection: false
-        additionalArgs: '-reconfigure'
-        workingDirectory: infra
+    - script: |
+        terraform init \
+          -backend-config="resource_group_name=$(backendResourceGroup)" \
+          -backend-config="storage_account_name=$(backendStorageAccount)" \
+          -backend-config="container_name=$(backendContainer)" \
+          -backend-config="key=$(backendKeyDev)" \
+          -reconfigure
+      displayName: 'Terraform Init (Dev)'
 
     - script: |
         terraform workspace select dev || terraform workspace new dev
       displayName: 'Select/Create Dev Workspace'
 
-    - task: TerraformCLI@2   # Updated to version 2
-      displayName: Terraform Plan (Dev)
-      inputs:
-        provider: 'azurerm'
-        command: 'plan'
-        environmentServiceName: 'terraform-sc'
-        workingDirectory: infra
-
-    - task: TerraformCLI@2   # Updated to version 2
-      displayName: Terraform Apply (Dev)
-      inputs:
-        provider: 'azurerm'
-        command: 'apply'
-        environmentServiceName: 'terraform-sc'
-        additionalArgs: '-auto-approve'
-        workingDirectory: infra
+    - script: |
+        terraform plan -out=tfplan
+      displayName: 'Terraform Plan (Dev)'
 
     - script: |
-        # Capture the web app URL from Terraform output and set it as a pipeline variable
-        echo "##vso[task.setvariable variable=webAppUrl]$(terraform output -raw web_app_url)"
-      displayName: 'Capture WebApp URL'
+        terraform apply -auto-approve tfplan
+      displayName: 'Terraform Apply (Dev)'
 
     - script: |
-        # Display the web app URL
-        echo "Web App URL: $(webAppUrl)"
-      displayName: 'Display WebApp URL'
+        echo "##vso[task.setvariable variable=webAppUrlDev]$(terraform output -raw web_app_url)"
+      displayName: 'Capture Dev WebApp URL'
+
+    - script: |
+        echo "Dev Web App URL: $(webAppUrlDev)"
+      displayName: 'Display Dev WebApp URL'
 
 - stage: Staging
   dependsOn: Dev
@@ -83,39 +67,31 @@ stages:
   - job: DeployStaging
     displayName: "Deploy Staging WebApp"
     steps:
-    - task: TerraformCLI@2   # Use version 2
-      displayName: Terraform Init
-      inputs:
-        provider: 'azurerm'
-        command: 'init'
-        backendType: 'azurerm'
-        backendServiceArm: 'terraform-sc'
-        backendAzureRmResourceGroupName: '$(backendResourceGroup)'
-        backendAzureRmStorageAccountName: '$(backendStorageAccount)'
-        backendAzureRmContainerName: '$(backendContainer)'
-        backendAzureRmKey: 'staging.terraform.tfstate'  # Staging state file (staging.terraform.tfstate)
-        allowTelemetryCollection: false
-        additionalArgs: '-reconfigure'
-        workingDirectory: infra
+    - script: |
+        terraform init \
+          -backend-config="resource_group_name=$(backendResourceGroup)" \
+          -backend-config="storage_account_name=$(backendStorageAccount)" \
+          -backend-config="container_name=$(backendContainer)" \
+          -backend-config="key=$(backendKeyStaging)" \
+          -reconfigure
+      displayName: 'Terraform Init (Staging)'
 
     - script: |
         terraform workspace select staging || terraform workspace new staging
       displayName: 'Select/Create Staging Workspace'
 
-    - task: TerraformCLI@2   # Use version 2
-      displayName: Terraform Plan (Staging)
-      inputs:
-        provider: 'azurerm'
-        command: 'plan'
-        environmentServiceName: 'terraform-sc'
-        workingDirectory: infra
+    - script: |
+        terraform plan -out=tfplan
+      displayName: 'Terraform Plan (Staging)'
 
-    - task: TerraformCLI@2   # Use version 2
-      displayName: Terraform Apply (Staging)
-      inputs:
-        provider: 'azurerm'
-        command: 'apply'
-        environmentServiceName: 'terraform-sc'
-        additionalArgs: '-auto-approve'
-        workingDirectory: infra
+    - script: |
+        terraform apply -auto-approve tfplan
+      displayName: 'Terraform Apply (Staging)'
 
+    - script: |
+        echo "##vso[task.setvariable variable=webAppUrlStaging]$(terraform output -raw web_app_url)"
+      displayName: 'Capture Staging WebApp URL'
+
+    - script: |
+        echo "Staging Web App URL: $(webAppUrlStaging)"
+      displayName: 'Display Staging WebApp URL'
