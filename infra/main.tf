@@ -6,6 +6,7 @@ terraform {
     storage_account_name = "tfstatefaruk1234567"     # Your remote backend Storage Account
     container_name       = "tfstate"
     key                  = "${terraform.workspace}.terraform.tfstate"   # dev.terraform.tfstate, staging.terraform.tfstate
+    use_azuread_auth     = true
   }
 
   required_providers {
