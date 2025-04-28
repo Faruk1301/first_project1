@@ -1,90 +1,104 @@
+terraform {
+  required_version = ">= 1.5.7"
+
+  backend "azurerm" {
+    resource_group_name  = "terraform-backend-rg"   # You should have created this manually
+    storage_account_name = "tfstatefaruk1234567"     # Your remote backend Storage Account
+    container_name       = "tfstate"
+    key                  = "${terraform.workspace}.terraform.tfstate"   # dev.terraform.tfstate, staging.terraform.tfstate
+  }
+
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+}
+
 provider "azurerm" {
   features {}
 }
 
-# Resource Group for Backend
-resource "azurerm_resource_group" "terraform_backend_rg" {
-  name     = "terraform-backend-rg"
-  location = "East US"
+# Common variables
+variable "location" {
+  type    = string
+  default = "East US"
 }
 
-# Storage Account for Remote Backend
-resource "azurerm_storage_account" "tfstate_storage" {
-  name                     = "tfstatefaruk1234567"
-  resource_group_name       = azurerm_resource_group.terraform_backend_rg.name
-  location                 = azurerm_resource_group.terraform_backend_rg.location
-  account_tier              = "Standard"
-  account_replication_type = "LRS"
+variable "app_service_plan_name" {
+  type    = string
+  default = "my-app-service-plan"
 }
 
-# Storage Container for Terraform State
-resource "azurerm_storage_container" "tfstate_container" {
-  name                  = "tfstate"
-  storage_account_name  = azurerm_storage_account.tfstate_storage.name
-  container_access_type = "private"
+# Dev variables
+variable "dev_resource_group_name" {
+  type    = string
+  default = "my-resource-group-dev"
 }
 
-# Azure Storage Backend Configuration
-terraform {
-  backend "azurerm" {
-    resource_group_name   = azurerm_resource_group.terraform_backend_rg.name
-    storage_account_name  = azurerm_storage_account.tfstate_storage.name
-    container_name        = azurerm_storage_container.tfstate_container.name
-    key                    = "dev.terraform.tfstate"
-  }
+variable "dev_app_service_name" {
+  type    = string
+  default = "demo-app-faruk-dev-001"
 }
 
-# Azure Resource Group for App Service (Dev and Staging)
-resource "azurerm_resource_group" "dev_rg" {
-  name     = "my-resource-group-dev"
-  location = "East US"
+# Staging variables
+variable "staging_resource_group_name" {
+  type    = string
+  default = "my-resource-group-staging"
 }
 
-resource "azurerm_resource_group" "staging_rg" {
-  name     = "my-resource-group-staging"
-  location = "East US"
+variable "staging_app_service_name" {
+  type    = string
+  default = "webapp-faruk-staging-001"
 }
 
-# App Service Plan for Dev and Staging
-resource "azurerm_app_service_plan" "app_service_plan" {
-  name                = "my-app-service-plan"
-  location            = azurerm_resource_group.dev_rg.location
-  resource_group_name = azurerm_resource_group.dev_rg.name
+# Select names depending on workspace
+locals {
+  resource_group_name = terraform.workspace == "dev" ? var.dev_resource_group_name : var.staging_resource_group_name
+  app_service_name    = terraform.workspace == "dev" ? var.dev_app_service_name : var.staging_app_service_name
+}
+
+# Create Resource Group
+resource "azurerm_resource_group" "rg" {
+  name     = local.resource_group_name
+  location = var.location
+}
+
+# Create App Service Plan
+resource "azurerm_app_service_plan" "asp" {
+  name                = var.app_service_plan_name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   kind                = "Linux"
   reserved            = true
+
   sku {
     tier = "Basic"
     size = "B1"
   }
 }
 
-# Dev Web App
-resource "azurerm_web_app" "dev_web_app" {
-  name                = "demo-app-faruk-dev-001"
-  location            = azurerm_resource_group.dev_rg.location
-  resource_group_name = azurerm_resource_group.dev_rg.name
-  app_service_plan_id = azurerm_app_service_plan.app_service_plan.id
+# Create Web App
+resource "azurerm_linux_web_app" "webapp" {
+  name                = local.app_service_name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  service_plan_id     = azurerm_app_service_plan.asp.id
+
+  site_config {
+    application_stack {
+      python_version = "3.10"
+    }
+  }
+
   app_settings = {
-    "SOME_APP_SETTING" = "value"
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
+    SCM_DO_BUILD_DURING_DEPLOYMENT      = "true"
   }
 }
 
-# Staging Web App
-resource "azurerm_web_app" "staging_web_app" {
-  name                = "webapp-faruk-staging-001"
-  location            = azurerm_resource_group.staging_rg.location
-  resource_group_name = azurerm_resource_group.staging_rg.name
-  app_service_plan_id = azurerm_app_service_plan.app_service_plan.id
-  app_settings = {
-    "SOME_APP_SETTING" = "value"
-  }
+# Outputs (Optional, nice touch!)
+output "web_app_url" {
+  value = azurerm_linux_web_app.webapp.default_hostname
 }
-
-output "dev_web_app_url" {
-  value = azurerm_web_app.dev_web_app.default_site_hostname
-}
-
-output "staging_web_app_url" {
-  value = azurerm_web_app.staging_web_app.default_site_hostname
-}
-
