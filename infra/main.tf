@@ -40,7 +40,7 @@ variable "dev_resource_group_name" {
 
 variable "dev_app_service_name" {
   type    = string
-  default = "demo-app-faruk-dev-001"
+  default = "demo-app-faruk-dev-1301"
 }
 
 # Staging variables
