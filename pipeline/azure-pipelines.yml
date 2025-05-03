@@ -18,7 +18,7 @@ variables:
 
   # Environment configurations
   - name: dev.app_service_name
-    value: 'demo-app-faruk-dev-001'
+    value: 'demo-app-faruk-dev-1301'
   - name: dev.resource_group_name
     value: 'my-resource-group-dev'
 
