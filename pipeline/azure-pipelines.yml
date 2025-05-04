@@ -19,7 +19,6 @@ variables:
     value: 'my-resource-group-dev'
   - name: dev_app_service_name
     value: 'demo-app-faruk-dev-1301'
-
   - name: staging_app_service_name
     value: 'webapp-faruk-staging-001'
 
@@ -27,7 +26,7 @@ pool:
   vmImage: 'ubuntu-24.04'
 
 stages:
-# ----------- Stage 1: Build Stage -----------
+# ----------- Stage 1: Build Stage ----------- 
 - stage: Build
   displayName: 'Build Stage'
   jobs:
@@ -89,6 +88,14 @@ stages:
             command: 'init'
 
         - task: TerraformTaskV4@4
+          displayName: 'Terraform Plan (Dev)'
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(tfWorkingDir)'
+            environmentServiceNameAzureRM: 'terraform-sc'
+
+        - task: TerraformTaskV4@4
           displayName: 'Terraform Apply (Dev)'
           inputs:
             provider: 'azurerm'
@@ -137,6 +144,14 @@ stages:
             backendAzureRmKey: 'staging.terraform.tfstate'
             workingDirectory: '$(tfWorkingDir)'
             command: 'init'
+
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Plan (Staging)'
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(tfWorkingDir)'
+            environmentServiceNameAzureRM: 'terraform-sc'
 
         - task: TerraformTaskV4@4
           displayName: 'Terraform Apply (Staging)'
