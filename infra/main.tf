@@ -93,6 +93,7 @@ resource "azurerm_linux_web_app" "webapp" {
   resource_group_name = terraform.workspace == "dev" ? azurerm_resource_group.dev.name : azurerm_resource_group.staging.name
   service_plan_id     = azurerm_app_service_plan.asp.id
 
+  site_config {
     application_stack {
       python_version = "3.10"
     }
@@ -108,4 +109,5 @@ resource "azurerm_linux_web_app" "webapp" {
 output "web_app_url" {
   value = azurerm_linux_web_app.webapp.default_hostname
 }
+
 
