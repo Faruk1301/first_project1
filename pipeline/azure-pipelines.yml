@@ -115,7 +115,7 @@ stages:
             appName: '$(dev_app_service_name)'
             package: '$(Pipeline.Workspace)/drop/app.zip'
             runtimeStack: 'PYTHON|3.10'
-            startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+            startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
 
 # ----------- Stage 3: Deploy to Staging ----------- 
 - stage: DeployStaging
@@ -173,7 +173,7 @@ stages:
             appName: '$(staging_app_service_name)'
             package: '$(Pipeline.Workspace)/drop/app.zip'
             runtimeStack: 'PYTHON|3.10'
-            startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app:app'
+            startUpCommand: 'gunicorn --bind=0.0.0.0 --workers=4 app:app'
 
 
 
