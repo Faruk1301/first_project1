@@ -2,10 +2,10 @@ terraform {
   required_version = ">= 1.5.7"
 
   backend "azurerm" {
-    resource_group_name  = "terraform-backend-rg"   # You should have created this manually
-    storage_account_name = "tfstatefaruk1234567"     # Your remote backend Storage Account
+    resource_group_name  = "terraform-backend-rg"
+    storage_account_name = "tfstatefaruk1234567"
     container_name       = "tfstate"
-    key                  = "${terraform.workspace}.terraform.tfstate"   # dev.terraform.tfstate, staging.terraform.tfstate
+    key                  = "${terraform.workspace}.terraform.tfstate"
     use_azuread_auth     = true
   }
 
@@ -94,6 +94,8 @@ resource "azurerm_linux_web_app" "webapp" {
   service_plan_id     = azurerm_app_service_plan.asp.id
 
   site_config {
+    linux_fx_version = "PYTHON|3.10" # ✅ Important fix
+
     application_stack {
       python_version = "3.10"
     }
@@ -105,7 +107,8 @@ resource "azurerm_linux_web_app" "webapp" {
   }
 }
 
-# Outputs (Optional, nice touch!)
+# Outputs
 output "web_app_url" {
   value = azurerm_linux_web_app.webapp.default_hostname
 }
+
