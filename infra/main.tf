@@ -93,9 +93,6 @@ resource "azurerm_linux_web_app" "webapp" {
   resource_group_name = terraform.workspace == "dev" ? azurerm_resource_group.dev.name : azurerm_resource_group.staging.name
   service_plan_id     = azurerm_app_service_plan.asp.id
 
-  site_config {
-    linux_fx_version = "PYTHON|3.10" # ✅ Important fix
-
     application_stack {
       python_version = "3.10"
     }
