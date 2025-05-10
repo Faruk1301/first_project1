@@ -7,7 +7,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: terraform_credential
+  - group: terraform_credential  # Includes client_id, client_secret, etc.
 
 stages:
 
@@ -30,29 +30,44 @@ stages:
           inputs:
             provider: 'azurerm'
             command: 'init'
-            backendServiceArm: 'terraform-sc'  # 🔁 corrected here
+            backendServiceArm: 'terraform-sc'
             backendAzureRmResourceGroupName: 'terraform-backend-rg'
             backendAzureRmStorageAccountName: 'tfstatefaruk1234567'
             backendAzureRmContainerName: 'tfstate'
             backendAzureRmKey: 'dev.terraform.tfstate'
             workingDirectory: 'infra'
+          env:
+            ARM_CLIENT_ID: $(client_id)
+            ARM_CLIENT_SECRET: $(client_secret)
+            ARM_SUBSCRIPTION_ID: $(subscription_id)
+            ARM_TENANT_ID: $(tenant_id)
 
         - task: TerraformTaskV4@4
           displayName: 'Terraform Plan'
           inputs:
             provider: 'azurerm'
             command: 'plan'
-            environmentServiceNameAzureRM: 'terraform-sc'  # 🔁 corrected here
+            environmentServiceNameAzureRM: 'terraform-sc'
             workingDirectory: 'infra'
+          env:
+            ARM_CLIENT_ID: $(client_id)
+            ARM_CLIENT_SECRET: $(client_secret)
+            ARM_SUBSCRIPTION_ID: $(subscription_id)
+            ARM_TENANT_ID: $(tenant_id)
 
         - task: TerraformTaskV4@4
           displayName: 'Terraform Apply'
           inputs:
             provider: 'azurerm'
             command: 'apply'
-            environmentServiceNameAzureRM: 'terraform-sc'  # 🔁 corrected here
+            environmentServiceNameAzureRM: 'terraform-sc'
             workingDirectory: 'infra'
             args: '-auto-approve'
+          env:
+            ARM_CLIENT_ID: $(client_id)
+            ARM_CLIENT_SECRET: $(client_secret)
+            ARM_SUBSCRIPTION_ID: $(subscription_id)
+            ARM_TENANT_ID: $(tenant_id)
 
 # Stage 2: Build and Deploy Flask App
 - stage: Deploy
@@ -75,7 +90,7 @@ stages:
         - task: AzureWebApp@1
           displayName: 'Deploy to Dev Web App'
           inputs:
-            azureSubscription: 'terraform-sc'  # 🔁 corrected here
+            azureSubscription: 'terraform-sc'
             appType: 'webAppLinux'
             appName: 'example-dev-webapp'
             package: '$(System.DefaultWorkingDirectory)/app/app.zip'
@@ -83,7 +98,7 @@ stages:
         - task: AzureWebApp@1
           displayName: 'Deploy to Staging Web App'
           inputs:
-            azureSubscription: 'terraform-sc'  # 🔁 corrected here
+            azureSubscription: 'terraform-sc'
             appType: 'webAppLinux'
             appName: 'example-staging-webapp'
             package: '$(System.DefaultWorkingDirectory)/app/app.zip'
