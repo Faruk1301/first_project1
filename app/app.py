@@ -1,18 +1,19 @@
-import logging
 from flask import Flask
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logging.info("Starting the application...")
+import os
 
 app = Flask(__name__)
 
 @app.route('/')
-def home():
-    logging.info("Home route accessed.")
-    return "Hello, World!"
+def hello_world():
+    if os.getenv('STAGING') == '1':
+        return 'Hello from Staging'
+    else:
+        return 'Hello from Dev'
 
-if __name__ == "__main__":
-    logging.info("App is running successfully.")
+@app.route('/health')
+def health():
+    return 'OK', 200
+
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
 
